@@ -4,6 +4,7 @@ import os
 
 from pydub import AudioSegment
 from pydub.generators import Sine
+import pytest
 
 from tools.concatenate import concatenate_audio
 
@@ -107,6 +108,65 @@ class TestGapCalculation:
         result = AudioSegment.from_mp3(output)
         # Should have used 100ms minimum gap
         assert len(result) >= 1050
+
+    def test_without_timestamps_has_no_inserted_gap(self, tmp_path):
+        """When timestamps are disabled, clips are joined directly."""
+        wav1 = _make_wav(tmp_path, "a.wav", 500)
+        wav2 = _make_wav(tmp_path, "b.wav", 500)
+
+        segments = [
+            {"start": 0.0, "end": 1.0},
+            {"start": 11.0, "end": 12.0},
+        ]
+        output = str(tmp_path / "output.mp3")
+
+        concatenate_audio([wav1, wav2], segments, output, use_timestamps=False)
+
+        result = AudioSegment.from_mp3(output)
+        # No timestamp-based gap, should be close to 1000ms total.
+        assert len(result) < 1200
+
+    def test_without_timestamps_uses_fixed_gap(self, tmp_path):
+        """When fixed gap is provided, it should be inserted between clips."""
+        wav1 = _make_wav(tmp_path, "a.wav", 500)
+        wav2 = _make_wav(tmp_path, "b.wav", 500)
+
+        segments = [
+            {"start": 0.0, "end": 1.0},
+            {"start": 11.0, "end": 12.0},
+        ]
+        output = str(tmp_path / "output_fixed_gap.mp3")
+
+        concatenate_audio(
+            [wav1, wav2],
+            segments,
+            output,
+            use_timestamps=False,
+            fixed_gap_ms=200,
+        )
+
+        result = AudioSegment.from_mp3(output)
+        # 500 + 500 + 200ms fixed gap = 1200ms
+        assert 1150 <= len(result) <= 1300
+
+    def test_negative_fixed_gap_raises(self, tmp_path):
+        """Negative fixed gap should be rejected."""
+        wav1 = _make_wav(tmp_path, "a.wav", 300)
+        wav2 = _make_wav(tmp_path, "b.wav", 300)
+        output = str(tmp_path / "output_invalid_gap.mp3")
+        segments = [
+            {"start": 0.0, "end": 0.3},
+            {"start": 0.4, "end": 0.7},
+        ]
+
+        with pytest.raises(ValueError):
+            concatenate_audio(
+                [wav1, wav2],
+                segments,
+                output,
+                use_timestamps=False,
+                fixed_gap_ms=-1,
+            )
 
 
 class TestOutputFormat:

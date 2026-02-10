@@ -95,6 +95,18 @@ def main() -> None:
         "--index-tts-cfg-path", default=None,
         help="IndexTTS2 配置文件路径（默认 <index-tts-model-dir>/config.yaml）",
     )
+    concat_group = parser.add_mutually_exclusive_group()
+    concat_group.add_argument(
+        "--concatenate-without-timestamps",
+        action="store_true",
+        help="第5步拼接时忽略时间戳，直接顺序拼接音频片段",
+    )
+    concat_group.add_argument(
+        "--concatenate-fixed-gap-ms",
+        type=int,
+        metavar="MS",
+        help="第5步拼接时忽略时间戳，并在片段间插入固定停顿（毫秒）",
+    )
     args = parser.parse_args()
 
     data_dir = (Path(__file__).resolve().parent / "data").resolve()
@@ -107,6 +119,9 @@ def main() -> None:
 
     if args.download_only and not source_is_youtube:
         print("错误: --download-only 仅支持 YouTube 链接输入", file=sys.stderr)
+        sys.exit(1)
+    if args.concatenate_fixed_gap_ms is not None and args.concatenate_fixed_gap_ms < 0:
+        print("错误: --concatenate-fixed-gap-ms 必须 >= 0", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -192,7 +207,21 @@ def main() -> None:
         print()
 
         # Step 5: Concatenate
-        concatenate_audio(wav_paths, segments, output_path)
+        use_timestamps_for_concat = True
+        fixed_gap_ms = None
+        if args.concatenate_fixed_gap_ms is not None:
+            use_timestamps_for_concat = False
+            fixed_gap_ms = args.concatenate_fixed_gap_ms
+        elif args.concatenate_without_timestamps:
+            use_timestamps_for_concat = False
+
+        concatenate_audio(
+            wav_paths,
+            segments,
+            output_path,
+            use_timestamps=use_timestamps_for_concat,
+            fixed_gap_ms=fixed_gap_ms,
+        )
 
         print()
         print("完成！")

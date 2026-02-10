@@ -122,6 +122,8 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 - `--tts-backend`：语音合成后端（`qwen3` 或 `indextts2`，默认 `indextts2`）
 - `--index-tts-model-dir`：IndexTTS2 模型目录（默认 `checkpoints`）
 - `--index-tts-cfg-path`：IndexTTS2 配置路径（默认 `<index-tts-model-dir>/config.yaml`）
+- `--concatenate-without-timestamps`：第 5 步拼接时忽略时间戳，不额外插入停顿
+- `--concatenate-fixed-gap-ms MS`：第 5 步拼接时忽略时间戳，并在片段间插入固定停顿（毫秒）
 - `--keep-intermediate`：保留中间文件（默认）
 - `--no-keep-intermediate`：不保留中间文件（流程结束后自动清理）
 - `--download-only`：仅下载 YouTube 音频为 MP3 后退出
@@ -132,6 +134,8 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 python babel.py input.mp3 --whisper-model medium -o output_zh.mp3
 python babel.py input.mp3 --translation-provider openai --translation-model gpt-5-mini -o output_zh.mp3
 python babel.py input.mp3 --tts-backend indextts2 --index-tts-model-dir /path/to/checkpoints
+python babel.py input.mp3 --concatenate-without-timestamps -o output_zh.mp3
+python babel.py input.mp3 --concatenate-fixed-gap-ms 180 -o output_zh.mp3
 python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp3
 python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 ```
