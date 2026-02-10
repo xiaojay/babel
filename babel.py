@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Babel - 英语播客转中文播客
 
-Pipeline: WhisperX STT + Diarization → LLM Translation (DeepSeek / OpenAI) → Voice Clone (Qwen3 / IndexTTS2) → MP3
+Pipeline: WhisperX STT + Diarization → LLM Translation → Translation Summary
+→ Voice Clone (Qwen3 / IndexTTS2) → MP3
 """
 
 import argparse
@@ -30,6 +31,7 @@ from tools import (
     transcribe,
     extract_reference_audio,
     translate_segments,
+    summarize_translated_segments,
     synthesize_segments,
     concatenate_audio,
     download_youtube_mp3,
@@ -40,6 +42,13 @@ from tools import (
 def save_intermediate(data: dict, path: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def save_text(text: str, path: str) -> None:
+    out_path = Path(path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(text.strip() + "\n")
 
 
 def main() -> None:
@@ -157,6 +166,7 @@ def main() -> None:
             output_path = args.output
         else:
             output_path = str(data_dir / f"{Path(input_path).stem}_zh.mp3")
+        summary_output_path = str(Path(output_path).with_suffix(".summary.txt"))
 
         # Working directory for intermediate files
         if args.keep_intermediate:
@@ -193,6 +203,14 @@ def main() -> None:
                 {"segments": segments},
                 os.path.join(work_dir, "translation.json"),
             )
+
+        summary_text = summarize_translated_segments(
+            segments,
+            provider=args.translation_provider,
+            model=args.translation_model,
+        )
+        save_text(summary_text, summary_output_path)
+        print(f"[Step 3.5] 总结已写入: {summary_output_path}")
         print()
 
         # Step 4: Synthesize with voice cloning

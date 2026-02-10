@@ -15,6 +15,16 @@ TRANSLATE_SYSTEM_PROMPT = (
 )
 
 BATCH_SIZE = 20  # segments per API call
+SUMMARY_MAX_SEGMENTS = 300
+SUMMARY_MAX_CHARS = 24000
+SUMMARY_SYSTEM_PROMPT = (
+    "你是一位资深中文播客编辑。请基于播客稿内容输出简洁、准确的中文总结。\n"
+    "要求：\n"
+    "1. 使用简体中文，控制在300-500字\n"
+    "2. 覆盖核心观点、关键论据和主要结论\n"
+    "3. 不杜撰信息，不输出与材料无关内容\n"
+    "4. 仅输出总结正文，不要标题、编号或Markdown"
+)
 
 TRANSLATE_PROVIDERS = {
     "deepseek": {
@@ -54,6 +64,48 @@ def _build_translate_client(provider: str) -> tuple[OpenAI, str]:
     return client, config["default_model"]
 
 
+def _resolve_model_name(model: str | None, default_model: str) -> str:
+    if model and model.strip():
+        return model.strip()
+    return default_model
+
+
+def _collect_summary_source_lines(
+    segments: list[dict],
+    max_segments: int = SUMMARY_MAX_SEGMENTS,
+    max_chars: int = SUMMARY_MAX_CHARS,
+) -> tuple[list[str], int]:
+    lines: list[str] = []
+    for seg in segments:
+        text = (seg.get("text_zh") or seg.get("text") or "").strip()
+        if text:
+            lines.append(text)
+
+    total_lines = len(lines)
+    if total_lines == 0:
+        return [], 0
+
+    if total_lines > max_segments:
+        sampled = [lines[int(i * total_lines / max_segments)] for i in range(max_segments)]
+        sampled[-1] = lines[-1]
+    else:
+        sampled = lines
+
+    picked: list[str] = []
+    current_chars = 0
+    for line in sampled:
+        extra = len(line) + 1
+        if picked and current_chars + extra > max_chars:
+            break
+        if not picked and len(line) > max_chars:
+            picked.append(line[:max_chars])
+            break
+        picked.append(line)
+        current_chars += extra
+
+    return picked, total_lines
+
+
 def translate_segments(
     segments: list[dict],
     provider: str = "deepseek",
@@ -65,7 +117,7 @@ def translate_segments(
     """
     provider = provider.strip().lower()
     client, default_model = _build_translate_client(provider)
-    model_name = model.strip() if model else default_model
+    model_name = _resolve_model_name(model, default_model)
 
     print(f"[Step 3] 使用 {provider}:{model_name} 翻译 {len(segments)} 个片段...")
     translated = list(segments)  # shallow copy
@@ -121,3 +173,49 @@ def translate_segments(
         print(f"  已翻译 {min(i + BATCH_SIZE, len(segments))}/{len(segments)}")
 
     return translated
+
+
+def summarize_translated_segments(
+    segments: list[dict],
+    provider: str = "deepseek",
+    model: str | None = None,
+) -> str:
+    """Summarize translated segments into a short Chinese text."""
+    provider = provider.strip().lower()
+    client, default_model = _build_translate_client(provider)
+    model_name = _resolve_model_name(model, default_model)
+    source_lines, total_lines = _collect_summary_source_lines(segments)
+
+    if not source_lines:
+        return "（无可总结内容）"
+
+    print(f"[Step 3.5] 使用 {provider}:{model_name} 生成翻译总结...")
+
+    source_text = "\n".join(f"{i + 1}. {line}" for i, line in enumerate(source_lines))
+    sampled_hint = ""
+    if total_lines > len(source_lines):
+        sampled_hint = (
+            f"说明：原始稿件共 {total_lines} 段，以下为抽样后的 {len(source_lines)} 段片段。\n"
+        )
+    user_msg = (
+        "请根据以下中文播客稿内容写总结。\n"
+        f"{sampled_hint}"
+        "输出要求：300-500字，信息准确，不要标题和编号。\n\n"
+        f"{source_text}"
+    )
+
+    request_kwargs = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ],
+    }
+    if provider == "deepseek":
+        request_kwargs["temperature"] = 0.3
+
+    response = client.chat.completions.create(**request_kwargs)
+    summary = (response.choices[0].message.content or "").strip()
+    if not summary:
+        return "（总结生成失败：模型未返回内容）"
+    return summary

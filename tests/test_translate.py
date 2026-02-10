@@ -225,3 +225,51 @@ class TestMissingApiKey:
                 [{"start": 0.0, "end": 1.0, "text": "Hi", "speaker": "S0"}],
                 provider="invalid-provider",
             )
+
+
+class TestSummary:
+    """Test translation-summary generation."""
+
+    def test_summary_uses_selected_model(self, monkeypatch):
+        client = MagicMock()
+        client.chat.completions.create.return_value = _make_response("这是一段总结。")
+        captured_kwargs = {}
+
+        def _openai_factory(**kwargs):
+            captured_kwargs.update(kwargs)
+            return client
+
+        import tools.translate as mod
+        monkeypatch.setattr(mod, "OpenAI", _openai_factory)
+
+        summary = mod.summarize_translated_segments(
+            [
+                {
+                    "start": 0.0,
+                    "end": 1.0,
+                    "text": "hello",
+                    "text_zh": "你好",
+                    "speaker": "S0",
+                }
+            ],
+            provider="openai",
+            model="gpt-5-mini-2026-01-01",
+        )
+
+        assert captured_kwargs == {"api_key": "fake_openai_key"}
+        call_kwargs = client.chat.completions.create.call_args.kwargs
+        assert call_kwargs["model"] == "gpt-5-mini-2026-01-01"
+        assert "你好" in call_kwargs["messages"][1]["content"]
+        assert summary == "这是一段总结。"
+
+    def test_summary_returns_placeholder_on_empty_segments(self, monkeypatch):
+        client = MagicMock()
+        import tools.translate as mod
+        monkeypatch.setattr(mod, "OpenAI", lambda **kw: client)
+
+        summary = mod.summarize_translated_segments(
+            [{"start": 0.0, "end": 1.0, "text": "  ", "text_zh": "", "speaker": "S0"}]
+        )
+
+        assert summary == "（无可总结内容）"
+        client.chat.completions.create.assert_not_called()

@@ -103,6 +103,7 @@ python babel.py "https://www.youtube.com/watch?v=VIDEO_ID" --download-only -o po
 ```
 
 默认输出在项目 `data/` 目录下，文件名为输入同名加 `_zh.mp3` 后缀。
+翻译完成后会额外生成同路径、同名的总结文本：`*.summary.txt`。
 
 已验证示例（`IndexTTS2`，默认保留中间文件）：
 
@@ -172,6 +173,11 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 - 解析返回文本中的编号，写入 `text_zh` 字段。
 - 若解析失败则保留原文。
 
+### 3.5 翻译稿总结（`tools/translate.py`）
+
+- 在翻译完成后，使用与翻译相同的 provider/model 生成 300-500 字中文总结。
+- 总结输出到与目标音频同路径、同名的 `*.summary.txt`。
+
 ### 4. 声音克隆合成（`tools/synthesize.py`）
 
 - 后端一：`indextts2`（默认）
@@ -196,7 +202,7 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 
 ## 中间产物
 
-默认会生成一个与输入同目录、同名加 `_babel` 后缀的目录（可用 `--no-keep-intermediate` 关闭），例如：
+默认会生成 `data/<输入名>_babel` 目录（可用 `--no-keep-intermediate` 关闭），例如：
 
 - `transcription.json`：转录结果
 - `translation.json`：翻译结果
