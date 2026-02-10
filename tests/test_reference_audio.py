@@ -1,5 +1,6 @@
 """Tests for tools.reference_audio."""
 
+import json
 import os
 import tempfile
 
@@ -84,7 +85,7 @@ class TestBestSegmentSelection:
         ref_audio = AudioSegment.from_wav(result["SPEAKER_00"])
         assert len(ref_audio) <= 10100  # 10s + small tolerance
 
-    def test_falls_back_to_longest_segment(self, tmp_path):
+    def test_composes_short_segments_when_no_3_to_10s_segment(self, tmp_path):
         audio = _make_audio(5000)
         audio_path = str(tmp_path / "input.wav")
         audio.export(audio_path, format="wav")
@@ -98,13 +99,14 @@ class TestBestSegmentSelection:
 
         result = extract_reference_audio(audio_path, segments, str(tmp_path))
         ref_audio = AudioSegment.from_wav(result["SPEAKER_00"])
-        # Should fall back to the 3-3.5s segment (longest sorted first, then
-        # the 3.0-3.5 = 0.5? No: 1.0s segment). Actually the sorted order is:
-        # C(1.0s), B(1.5s) ... wait let me recalculate.
-        # A: 1.0s, B: 1.5s, C: 1.0s
-        # Sorted descending: B(1.5s), A(1.0s), C(1.0s)
-        # None in 3-10s range, so fallback to B (longest = 1.5s)
-        assert abs(len(ref_audio) - 1500) < 100
+        # Should compose multiple short segments with tiny gaps to get a longer ref.
+        # 1.0s + 1.5s + 1.0s + 2*50ms gap = ~3.6s
+        assert abs(len(ref_audio) - 3600) < 150
+
+        metadata = json.loads((tmp_path / "ref_audio" / "ref_metadata.json").read_text(encoding="utf-8"))
+        speaker_meta = metadata["speakers"]["SPEAKER_00"]
+        assert speaker_meta["mode"].startswith("composed/")
+        assert speaker_meta["ref_text"] == "A B C"
 
 
 class TestQualitySelection:

@@ -1,5 +1,6 @@
 """Step 4: 声音克隆合成（Qwen3-TTS / IndexTTS2）."""
 
+import json
 import os
 
 import soundfile as sf
@@ -54,6 +55,32 @@ def _segment_text(seg: dict) -> str:
     return "你好"
 
 
+def _load_ref_text_overrides(work_dir: str) -> dict[str, str]:
+    metadata_path = os.path.join(work_dir, "ref_audio", "ref_metadata.json")
+    if not os.path.isfile(metadata_path):
+        return {}
+
+    try:
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        print(f"[Step 4] 警告: 读取参考元数据失败，回退默认参考文本: {exc}")
+        return {}
+
+    speakers = data.get("speakers")
+    if not isinstance(speakers, dict):
+        return {}
+
+    overrides: dict[str, str] = {}
+    for speaker, info in speakers.items():
+        if not isinstance(info, dict):
+            continue
+        ref_text = (info.get("ref_text") or "").strip()
+        if ref_text:
+            overrides[speaker] = ref_text
+    return overrides
+
+
 def _synthesize_with_qwen(
     segments: list[dict],
     ref_audio_paths: dict[str, str],
@@ -96,6 +123,9 @@ def _synthesize_with_qwen(
     # Pre-compute voice clone prompts per speaker for efficiency
     print("[Step 4] 为每个说话人生成声音特征...")
     speaker_prompts: dict = {}
+    ref_text_overrides = _load_ref_text_overrides(work_dir)
+    if ref_text_overrides:
+        print("[Step 4] 使用 ref_metadata.json 中的参考文本")
 
     def _pick_ref_text(target_speaker: str) -> str:
         # Prefer English text from the same speaker; fall back to Chinese or any text.
@@ -117,7 +147,7 @@ def _synthesize_with_qwen(
         return "你好"
 
     for speaker, ref_path in ref_audio_paths.items():
-        ref_text = _pick_ref_text(speaker)
+        ref_text = ref_text_overrides.get(speaker) or _pick_ref_text(speaker)
         if not ref_text.strip():
             ref_text = "你好"
             print(f"  警告: 未找到 {speaker} 的参考文本，使用占位文本")

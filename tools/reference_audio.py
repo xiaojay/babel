@@ -1,5 +1,6 @@
 """Step 2: 提取每个说话人的参考音频."""
 
+import json
 import math
 import os
 
@@ -160,6 +161,99 @@ def _score_reference_clip(clip: AudioSegment, duration_s: float) -> tuple[float,
     return score, metrics
 
 
+def _segment_ref_text(seg: dict) -> str:
+    text = (seg.get("text") or "").strip()
+    if text:
+        return text
+    text_zh = (seg.get("text_zh") or "").strip()
+    if text_zh:
+        return text_zh
+    return ""
+
+
+def _build_ref_text(segments: list[dict], max_chars: int = 300) -> str:
+    parts = [_segment_ref_text(seg) for seg in segments]
+    parts = [part for part in parts if part]
+    if not parts:
+        return ""
+
+    joined = " ".join(parts)
+    joined = " ".join(joined.split())
+    return joined[:max_chars].strip()
+
+
+def _compose_reference_clip(
+    scored_candidates: list[dict],
+    min_total_ms: int = 3000,
+    target_total_ms: int = 7000,
+    max_total_ms: int = 10000,
+    max_parts: int = 4,
+    gap_ms: int = 50,
+) -> tuple[AudioSegment, list[dict]] | None:
+    if not scored_candidates:
+        return None
+
+    quality_pool = [
+        c for c in scored_candidates
+        if c["duration_ms"] >= 800 and c["metrics"]["speech_ratio"] >= 0.20
+    ]
+    if not quality_pool:
+        quality_pool = [c for c in scored_candidates if c["duration_ms"] >= 500]
+    if not quality_pool:
+        quality_pool = list(scored_candidates)
+
+    ranked = sorted(
+        quality_pool,
+        key=lambda c: (c["score"], c["duration_ms"]),
+        reverse=True,
+    )
+    all_ranked = sorted(
+        scored_candidates,
+        key=lambda c: (c["score"], c["duration_ms"]),
+        reverse=True,
+    )
+
+    selected: list[dict] = []
+    selected_ids: set[int] = set()
+    total_duration_ms = 0
+
+    for cand in ranked:
+        cid = int(cand["candidate_id"])
+        if cid in selected_ids:
+            continue
+        selected.append(cand)
+        selected_ids.add(cid)
+        total_duration_ms += int(cand["duration_ms"])
+        if total_duration_ms >= target_total_ms or len(selected) >= max_parts:
+            break
+
+    if total_duration_ms < min_total_ms and len(selected) < max_parts:
+        for cand in all_ranked:
+            cid = int(cand["candidate_id"])
+            if cid in selected_ids:
+                continue
+            selected.append(cand)
+            selected_ids.add(cid)
+            total_duration_ms += int(cand["duration_ms"])
+            if total_duration_ms >= min_total_ms or len(selected) >= max_parts:
+                break
+
+    if not selected:
+        return None
+
+    ordered = sorted(selected, key=lambda c: (c["start_ms"], c["end_ms"]))
+    combined = AudioSegment.empty()
+    for i, cand in enumerate(ordered):
+        if i > 0 and gap_ms > 0:
+            combined += AudioSegment.silent(duration=gap_ms)
+        combined += cand["clip"]
+        if len(combined) >= max_total_ms:
+            combined = combined[:max_total_ms]
+            break
+
+    return combined, ordered
+
+
 def extract_reference_audio(
     audio_path: str, segments: list[dict], work_dir: str
 ) -> dict[str, str]:
@@ -179,20 +273,16 @@ def extract_reference_audio(
 
     ref_paths: dict[str, str] = {}
     audio_length_ms = len(audio)
+    ref_metadata: dict[str, dict] = {}
 
     for speaker, segs in speaker_segments.items():
         segs_sorted = sorted(segs, key=_segment_duration, reverse=True)
         in_range = [s for s in segs_sorted if 3.0 <= _segment_duration(s) <= 10.0]
         candidates = in_range if in_range else segs_sorted
 
-        best_seg: dict | None = None
-        best_bounds: tuple[int, int] | None = None
-        best_clip: AudioSegment | None = None
-        best_score: float = float("-inf")
-        best_tie_breaker: float = float("-inf")
-        best_metrics: dict[str, float] | None = None
+        scored_candidates: list[dict] = []
 
-        for seg in candidates:
+        for idx, seg in enumerate(candidates):
             start_ms, end_ms = _clamp_segment_bounds_ms(seg, audio_length_ms)
             if end_ms <= start_ms:
                 continue
@@ -200,44 +290,83 @@ def extract_reference_audio(
             clip = audio[start_ms:end_ms]
             duration_s = (end_ms - start_ms) / 1000.0
             score, metrics = _score_reference_clip(clip, duration_s=duration_s)
-            tie_breaker = _segment_duration(seg)
-
-            if best_clip is None or (score, tie_breaker) > (best_score, best_tie_breaker):
-                best_seg = seg
-                best_bounds = (start_ms, end_ms)
-                best_clip = clip
-                best_score = score
-                best_tie_breaker = tie_breaker
-                best_metrics = metrics
-
-        if best_clip is None or best_bounds is None:
-            # Defensive fallback: this should rarely happen.
-            best_seg = segs_sorted[0]
-            start_ms, end_ms = _clamp_segment_bounds_ms(best_seg, audio_length_ms)
-            best_bounds = (start_ms, end_ms)
-            best_clip = audio[start_ms:end_ms]
-            best_score, best_metrics = _score_reference_clip(
-                best_clip,
-                duration_s=(end_ms - start_ms) / 1000.0,
+            scored_candidates.append(
+                {
+                    "candidate_id": idx,
+                    "seg": seg,
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "duration_ms": end_ms - start_ms,
+                    "clip": clip,
+                    "score": score,
+                    "metrics": metrics,
+                }
             )
-            best_tie_breaker = _segment_duration(best_seg)
 
-        start_ms, end_ms = best_bounds
-        if best_metrics is None:
-            best_metrics = {
-                "speech_ratio": 0.0,
-                "snr_db": 0.0,
-                "loudness_dbfs": -90.0,
-                "duration_score": 0.0,
-                "clip_ratio": 1.0,
-            }
+        best_clip: AudioSegment
+        best_ref_segments: list[dict]
+        mode = "single"
+        if scored_candidates:
+            best_single = max(
+                scored_candidates,
+                key=lambda c: (c["score"], c["duration_ms"]),
+            )
+            best_clip = best_single["clip"]
+            best_ref_segments = [best_single["seg"]]
+        else:
+            # Defensive fallback: this should rarely happen.
+            seg = segs_sorted[0]
+            start_ms, end_ms = _clamp_segment_bounds_ms(seg, audio_length_ms)
+            best_clip = audio[start_ms:end_ms]
+            best_ref_segments = [seg]
+
+        if not in_range and scored_candidates:
+            composed = _compose_reference_clip(scored_candidates)
+            if composed is not None:
+                composed_clip, used_segments = composed
+                # Prefer composed ref only when it materially extends short single refs.
+                if len(used_segments) >= 2 and len(composed_clip) > len(best_clip):
+                    best_clip = composed_clip
+                    best_ref_segments = [c["seg"] for c in used_segments]
+                    mode = f"composed/{len(used_segments)}"
+
+        best_score, best_metrics = _score_reference_clip(
+            best_clip,
+            duration_s=max(len(best_clip), 1) / 1000.0,
+        )
+        ref_text = _build_ref_text(
+            sorted(best_ref_segments, key=lambda seg: float(seg.get("start", 0.0))),
+        )
+        if not ref_text:
+            ref_text = "你好"
+
         ref_path = os.path.join(ref_dir, f"{speaker}.wav")
         best_clip.export(ref_path, format="wav")
         ref_paths[speaker] = ref_path
+        ref_metadata[speaker] = {
+            "mode": mode,
+            "ref_path": ref_path,
+            "duration_ms": len(best_clip),
+            "ref_text": ref_text,
+            "segments": [
+                {
+                    "start": float(seg.get("start", 0.0)),
+                    "end": float(seg.get("end", 0.0)),
+                    "speaker": seg.get("speaker", speaker),
+                    "text": (seg.get("text") or "").strip(),
+                    "text_zh": (seg.get("text_zh") or "").strip(),
+                }
+                for seg in sorted(best_ref_segments, key=lambda seg: float(seg.get("start", 0.0)))
+            ],
+        }
         print(
-            f"  {speaker}: {(end_ms - start_ms) / 1000:.1f}s "
+            f"  {speaker}: {len(best_clip) / 1000:.1f}s [{mode}] "
             f"(score={best_score:.3f}, speech={best_metrics['speech_ratio']:.2f}, "
             f"snr={best_metrics['snr_db']:.1f}dB) → {ref_path}"
         )
+
+    metadata_path = os.path.join(ref_dir, "ref_metadata.json")
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump({"speakers": ref_metadata}, f, ensure_ascii=False, indent=2)
 
     return ref_paths

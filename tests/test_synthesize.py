@@ -1,5 +1,6 @@
 """Tests for tools.synthesize."""
 
+import json
 import sys
 from types import ModuleType
 from unittest.mock import MagicMock
@@ -151,6 +152,48 @@ class TestSynthesizeCallFlow:
         tts_mock.create_voice_clone_prompt.assert_called_once_with(
             ref_audio="/tmp/ref.wav",
             ref_text="First",
+        )
+
+    def test_voice_clone_prompt_prefers_ref_metadata_text(
+        self, tmp_path, monkeypatch, _fake_qwen_tts, _fake_soundfile
+    ):
+        import tools.synthesize as mod
+        monkeypatch.setattr(mod, "get_device", lambda: "cpu")
+
+        tts_mock = MagicMock()
+        tts_mock.generate_voice_clone.return_value = ([np.zeros(1000)], 24000)
+        tts_mock.create_voice_clone_prompt.return_value = "prompt"
+        _fake_qwen_tts.Qwen3TTSModel.from_pretrained.return_value = tts_mock
+
+        work_dir = tmp_path / "work"
+        ref_dir = work_dir / "ref_audio"
+        ref_dir.mkdir(parents=True)
+        metadata_path = ref_dir / "ref_metadata.json"
+        metadata_path.write_text(
+            json.dumps(
+                {
+                    "speakers": {
+                        "S0": {
+                            "ref_text": "metadata ref text",
+                        }
+                    }
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        segments = [
+            {"start": 0.0, "end": 1.0, "text": "First", "text_zh": "第一", "speaker": "S0"},
+            {"start": 1.0, "end": 2.0, "text": "Second", "text_zh": "第二", "speaker": "S0"},
+        ]
+        ref_paths = {"S0": "/tmp/ref.wav"}
+
+        mod.synthesize_segments(segments, ref_paths, str(work_dir), tts_backend="qwen3")
+
+        tts_mock.create_voice_clone_prompt.assert_called_once_with(
+            ref_audio="/tmp/ref.wav",
+            ref_text="metadata ref text",
         )
 
     def test_invalid_backend_raises_value_error(self, monkeypatch):
