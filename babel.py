@@ -204,13 +204,19 @@ def main() -> None:
                 os.path.join(work_dir, "translation.json"),
             )
 
-        summary_text = summarize_translated_segments(
-            segments,
-            provider=args.translation_provider,
-            model=args.translation_model,
-        )
-        save_text(summary_text, summary_output_path)
-        print(f"[Step 3.5] 总结已写入: {summary_output_path}")
+        try:
+            summary_text = summarize_translated_segments(
+                segments,
+                provider=args.translation_provider,
+                model=args.translation_model,
+            )
+            save_text(summary_text, summary_output_path)
+            print(f"[Step 3.5] 总结已写入: {summary_output_path}")
+        except Exception as exc:
+            print(
+                f"[Step 3.5] 警告: 总结生成失败，将继续后续流程: {exc}",
+                file=sys.stderr,
+            )
         print()
 
         # Step 4: Synthesize with voice cloning
