@@ -1,0 +1,9 @@
+whisperx
+qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS.git
+openai
+pydub
+python-dotenv
+torch
+soundfile
+yt-dlp
+pytest
