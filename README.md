@@ -102,7 +102,7 @@ python babel.py "https://www.youtube.com/watch?v=VIDEO_ID"
 python babel.py "https://www.youtube.com/watch?v=VIDEO_ID" --download-only -o podcast.mp3
 ```
 
-默认输出为与输入同目录、同名加 `_zh.mp3` 后缀的文件。
+默认输出在项目 `data/` 目录下，文件名为输入同名加 `_zh.mp3` 后缀。
 
 已验证示例（`IndexTTS2`，默认保留中间文件）：
 
@@ -115,7 +115,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 `babel.py` 的参数：
 
 - `input`（必填）：输入英文播客 MP3，或 YouTube 链接
-- `-o, --output`：输出文件路径（默认 `input_zh.mp3`；`--download-only` 时为下载的 MP3）
+- `-o, --output`：输出文件路径（默认在 `data/` 下生成 `input_zh.mp3`；`--download-only` 时为下载的 MP3）
 - `--whisper-model`：Whisper 模型大小（默认 `large-v3`）
 - `--translation-provider`：翻译提供方（`deepseek` 或 `openai`，默认 `deepseek`）
 - `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-chat` 或 `gpt-5-mini`）

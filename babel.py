@@ -49,7 +49,7 @@ def main() -> None:
     parser.add_argument("input", help="输入英语播客 MP3 文件路径，或 YouTube 链接")
     parser.add_argument(
         "-o", "--output",
-        help="输出文件路径（默认 input_zh.mp3；--download-only 下为下载的 MP3 路径）",
+        help="输出文件路径（默认在 data/ 下；--download-only 下为下载的 MP3 路径）",
     )
     parser.add_argument(
         "--download-only", action="store_true",
@@ -97,6 +97,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    data_dir = (Path(__file__).resolve().parent / "data").resolve()
+    data_dir.mkdir(parents=True, exist_ok=True)
+
     raw_input = args.input.strip()
     source_is_youtube = is_youtube_url(raw_input)
     download_tmp_dir: str | None = None
@@ -110,17 +113,19 @@ def main() -> None:
         if source_is_youtube:
             print("[Step 0] 下载 YouTube 音频...")
             if args.download_only:
-                downloaded_path = download_youtube_mp3(
-                    raw_input,
-                    output_path=args.output,
+                download_kwargs = (
+                    {"output_path": args.output}
+                    if args.output
+                    else {"output_dir": str(data_dir)}
                 )
+                downloaded_path = download_youtube_mp3(raw_input, **download_kwargs)
                 print(f"[Step 0] 下载完成: {downloaded_path}")
                 print()
                 print("完成！")
                 return
 
             if args.keep_intermediate:
-                download_dir = str(Path.cwd())
+                download_dir = str(data_dir)
             else:
                 download_tmp_dir = tempfile.mkdtemp(prefix="babel_youtube_")
                 download_dir = download_tmp_dir
@@ -136,13 +141,11 @@ def main() -> None:
         if args.output:
             output_path = args.output
         else:
-            output_base_dir = Path.cwd() if source_is_youtube else Path(input_path).parent
-            output_path = str(output_base_dir / f"{Path(input_path).stem}_zh.mp3")
+            output_path = str(data_dir / f"{Path(input_path).stem}_zh.mp3")
 
         # Working directory for intermediate files
         if args.keep_intermediate:
-            work_base_dir = Path.cwd() if source_is_youtube else Path(input_path).parent
-            work_dir = str(work_base_dir / f"{Path(input_path).stem}_babel")
+            work_dir = str(data_dir / f"{Path(input_path).stem}_babel")
             os.makedirs(work_dir, exist_ok=True)
         else:
             work_dir = tempfile.mkdtemp(prefix="babel_")
