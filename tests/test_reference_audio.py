@@ -105,3 +105,28 @@ class TestBestSegmentSelection:
         # Sorted descending: B(1.5s), A(1.0s), C(1.0s)
         # None in 3-10s range, so fallback to B (longest = 1.5s)
         assert abs(len(ref_audio) - 1500) < 100
+
+
+class TestQualitySelection:
+    """Test quality-based scoring for reference clip selection."""
+
+    def test_prefers_higher_quality_clip_when_duration_equal(self, tmp_path):
+        # Poor clip first (mostly silence), good clip second (continuous voiced tone).
+        poor = AudioSegment.silent(duration=4500) + Sine(440).to_audio_segment(duration=500)
+        good = Sine(440).to_audio_segment(duration=5000)
+        audio = poor + good
+
+        audio_path = str(tmp_path / "input.wav")
+        audio.export(audio_path, format="wav")
+
+        segments = [
+            {"start": 0.0, "end": 5.0, "text": "Poor", "speaker": "SPEAKER_00"},
+            {"start": 5.0, "end": 10.0, "text": "Good", "speaker": "SPEAKER_00"},
+        ]
+
+        result = extract_reference_audio(audio_path, segments, str(tmp_path))
+        ref_audio = AudioSegment.from_wav(result["SPEAKER_00"])
+
+        # If scoring works, it should pick the second segment (much louder on average).
+        assert abs(len(ref_audio) - 5000) < 100
+        assert ref_audio.dBFS > -8.0
