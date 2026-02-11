@@ -1,0 +1,291 @@
+/* Babel Podcast Site */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    line-height: 1.7;
+    color: #1a1a1a;
+    background: #fafafa;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* Header */
+header {
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 1.5rem 0;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+header h1 a {
+    color: #1a1a1a;
+    text-decoration: none;
+}
+
+.site-description {
+    color: #666;
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+
+nav {
+    margin-top: 0.5rem;
+}
+
+nav a {
+    color: #0066cc;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+/* Episode List */
+.episode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.episode-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.episode-card h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.episode-card h2 a {
+    color: #1a1a1a;
+    text-decoration: none;
+}
+
+.episode-card h2 a:hover {
+    color: #0066cc;
+}
+
+.episode-meta {
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+}
+
+.episode-meta time {
+    margin-right: 1rem;
+}
+
+.episode-summary {
+    color: #444;
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+}
+
+audio {
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.detail-link {
+    color: #0066cc;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.detail-link:hover {
+    text-decoration: underline;
+}
+
+.empty {
+    color: #999;
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.empty code {
+    background: #f0f0f0;
+    padding: 0.2em 0.5em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+/* Episode Detail */
+.episode-detail h2 {
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.audio-section {
+    margin: 1.5rem 0;
+}
+
+.audio-section h3 {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 0.5rem;
+}
+
+.summary-section {
+    margin: 1.5rem 0;
+}
+
+.summary-section h3,
+.detailed-summary h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #eee;
+}
+
+.summary-section p {
+    color: #444;
+    line-height: 1.8;
+}
+
+/* Markdown content */
+.detailed-summary {
+    margin: 1.5rem 0;
+}
+
+.detailed-summary h1,
+.detailed-summary h2,
+.detailed-summary h3,
+.detailed-summary h4 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.detailed-summary h1 { font-size: 1.3rem; }
+.detailed-summary h2 { font-size: 1.15rem; }
+.detailed-summary h3 { font-size: 1.05rem; }
+
+.detailed-summary p {
+    margin-bottom: 0.75rem;
+    color: #333;
+}
+
+.detailed-summary ul,
+.detailed-summary ol {
+    margin: 0.5rem 0 1rem 1.5rem;
+}
+
+.detailed-summary li {
+    margin-bottom: 0.25rem;
+}
+
+.detailed-summary hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 1.5rem 0;
+}
+
+.detailed-summary blockquote {
+    border-left: 3px solid #ddd;
+    padding-left: 1rem;
+    color: #555;
+    margin: 1rem 0;
+}
+
+.detailed-summary code {
+    background: #f5f5f5;
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.detailed-summary pre {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+.detailed-summary pre code {
+    background: none;
+    padding: 0;
+}
+
+.detailed-summary table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.detailed-summary th,
+.detailed-summary td {
+    border: 1px solid #ddd;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+.detailed-summary th {
+    background: #f5f5f5;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 2rem;
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+/* Footer */
+footer {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid #e5e5e5;
+    color: #999;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+footer a {
+    color: #666;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .container {
+        padding: 0 1rem;
+    }
+
+    .episode-card {
+        padding: 1rem;
+    }
+
+    .episode-detail h2 {
+        font-size: 1.2rem;
+    }
+}

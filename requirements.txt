@@ -7,3 +7,5 @@ torch
 soundfile
 yt-dlp
 pytest
+jinja2
+markdown

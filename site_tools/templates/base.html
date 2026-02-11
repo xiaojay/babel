@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ config.title }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ base_url }}/style.css">
+    <link rel="alternate" type="application/rss+xml" title="{{ config.title }}" href="{{ base_url }}/feed.xml">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="{{ base_url }}/">{{ config.title }}</a></h1>
+            <p class="site-description">{{ config.description }}</p>
+            <nav>
+                <a href="{{ base_url }}/feed.xml">RSS 订阅</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <div class="container">
+            <p>由 <a href="https://github.com/jaykchen/babel">Babel</a> 生成</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{{ episode.title }} - {{ config.title }}{% endblock %}
+
+{% block content %}
+<article class="episode-detail">
+    <h2>{{ episode.title }}</h2>
+    <div class="episode-meta">
+        <time>{{ episode.pub_date }}</time>
+        <span class="duration">{{ episode.zh_audio_duration_seconds | format_duration }}</span>
+    </div>
+
+    <section class="audio-section">
+        <h3>中文音频</h3>
+        <audio controls preload="metadata">
+            <source src="{{ base_url }}/{{ episode.zh_audio }}" type="audio/mpeg">
+        </audio>
+    </section>
+
+    {% if episode.en_audio %}
+    <section class="audio-section">
+        <h3>英文原版</h3>
+        <audio controls preload="none">
+            <source src="{{ base_url }}/{{ episode.en_audio }}" type="audio/mpeg">
+        </audio>
+    </section>
+    {% endif %}
+
+    {% if episode.summary %}
+    <section class="summary-section">
+        <h3>摘要</h3>
+        <p>{{ episode.summary }}</p>
+    </section>
+    {% endif %}
+
+    {% if episode.detailed_summary_md %}
+    <section class="detailed-summary">
+        <h3>详细内容</h3>
+        {{ episode.detailed_summary_md | markdown | safe }}
+    </section>
+    {% endif %}
+
+    <a class="back-link" href="{{ base_url }}/">&larr; 返回列表</a>
+</article>
+{% endblock %}

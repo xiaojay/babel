@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="episode-list">
+    {% for ep in episodes %}
+    <article class="episode-card">
+        <h2><a href="{{ base_url }}/episodes/{{ ep.slug }}.html">{{ ep.title }}</a></h2>
+        <div class="episode-meta">
+            <time>{{ ep.pub_date }}</time>
+            <span class="duration">{{ ep.zh_audio_duration_seconds | format_duration }}</span>
+        </div>
+        {% if ep.summary %}
+        <p class="episode-summary">{{ ep.summary }}</p>
+        {% endif %}
+        <audio controls preload="none">
+            <source src="{{ base_url }}/{{ ep.zh_audio }}" type="audio/mpeg">
+        </audio>
+        <a class="detail-link" href="{{ base_url }}/episodes/{{ ep.slug }}.html">查看详情</a>
+    </article>
+    {% else %}
+    <p class="empty">暂无剧集。使用 <code>site.py add</code> 添加第一集。</p>
+    {% endfor %}
+</div>
+{% endblock %}

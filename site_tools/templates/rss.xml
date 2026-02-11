@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+     xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+    <title>{{ config.title }}</title>
+    <link>{{ base_url }}/</link>
+    <description>{{ config.description }}</description>
+    <language>{{ config.language }}</language>
+    <lastBuildDate>{{ build_date }}</lastBuildDate>
+    <atom:link href="{{ base_url }}/feed.xml" rel="self" type="application/rss+xml"/>
+    <itunes:author>{{ config.author }}</itunes:author>
+    <itunes:summary>{{ config.description }}</itunes:summary>
+    {% if config.cover_url %}
+    <itunes:image href="{{ config.cover_url }}"/>
+    <image>
+        <url>{{ config.cover_url }}</url>
+        <title>{{ config.title }}</title>
+        <link>{{ base_url }}/</link>
+    </image>
+    {% endif %}
+    {% for ep in episodes %}
+    <item>
+        <title>{{ ep.title }}</title>
+        <link>{{ base_url }}/episodes/{{ ep.slug }}.html</link>
+        <guid isPermaLink="true">{{ base_url }}/episodes/{{ ep.slug }}.html</guid>
+        <pubDate>{{ ep.pub_date | rfc2822 }}</pubDate>
+        <description>{{ ep.summary }}</description>
+        <enclosure url="{{ base_url }}/{{ ep.zh_audio }}" length="{{ ep.zh_audio_size_bytes }}" type="audio/mpeg"/>
+        <itunes:duration>{{ ep.zh_audio_duration_seconds | format_duration }}</itunes:duration>
+        <itunes:summary>{{ ep.summary }}</itunes:summary>
+    </item>
+    {% endfor %}
+</channel>
+</rss>
