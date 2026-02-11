@@ -161,7 +161,7 @@ def _estimate_audio_duration_seconds(segments: list[dict]) -> float:
 def _resolve_detailed_summary_profile(duration_seconds: float) -> tuple[str, str]:
     if duration_seconds < 20 * 60:
         return "1200-1800", "3-5"
-    if duration_seconds < 60 * 60:
+    if duration_seconds <= 60 * 60:
         return "1800-3200", "4-7"
     return "3200-5000", "6-10"
 

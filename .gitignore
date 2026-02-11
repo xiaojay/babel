@@ -1,4 +1,5 @@
 .env
+.venv
 venv310
 clawdbot_5min_babel
 clawdbot_babel
