@@ -26,7 +26,7 @@
         <guid isPermaLink="true">{{ base_url }}/episodes/{{ ep.slug }}.html</guid>
         <pubDate>{{ ep.pub_date | rfc2822 }}</pubDate>
         <description>{{ ep.summary }}</description>
-        <enclosure url="{{ base_url }}/{{ ep.zh_audio }}" length="{{ ep.zh_audio_size_bytes }}" type="audio/mpeg"/>
+        <enclosure url="{{ config.audio_base_url }}/{{ ep.zh_audio }}" length="{{ ep.zh_audio_size_bytes }}" type="audio/mpeg"/>
         <itunes:duration>{{ ep.zh_audio_duration_seconds | format_duration }}</itunes:duration>
         <itunes:summary>{{ ep.summary }}</itunes:summary>
     </item>

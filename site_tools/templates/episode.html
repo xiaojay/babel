@@ -24,7 +24,7 @@
         </div>
         <div class="player player-large">
             <audio preload="metadata">
-                <source src="{{ root }}/{{ episode.zh_audio }}" type="audio/mpeg">
+                <source src="{{ config.audio_base_url }}/{{ episode.zh_audio }}" type="audio/mpeg">
             </audio>
             <button class="player-btn" aria-label="播放">
                 <svg class="icon-play" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3v10l8-5z"/></svg>
@@ -44,7 +44,7 @@
         </div>
         <div class="player player-large">
             <audio preload="none">
-                <source src="{{ root }}/{{ episode.en_audio }}" type="audio/mpeg">
+                <source src="{{ config.audio_base_url }}/{{ episode.en_audio }}" type="audio/mpeg">
             </audio>
             <button class="player-btn" aria-label="播放">
                 <svg class="icon-play" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3v10l8-5z"/></svg>

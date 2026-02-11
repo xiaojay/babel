@@ -71,14 +71,17 @@ def main() -> None:
     )
     parser.add_argument(
         "--translation-provider",
-        default="deepseek",
+        default="openai",
         choices=["deepseek", "openai"],
-        help="翻译提供方：deepseek 或 openai（默认 deepseek）",
+        help="翻译提供方：deepseek 或 openai（默认 openai）",
     )
     parser.add_argument(
         "--translation-model",
         default=None,
-        help="翻译模型名（默认随 --translation-provider 自动选择）",
+        help=(
+            "翻译模型名（默认随 --translation-provider 自动选择："
+            "openai 为 gpt-5-mini，deepseek 为 deepseek-chat）"
+        ),
     )
     parser.add_argument(
         "--summary-mode",

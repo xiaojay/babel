@@ -9,15 +9,15 @@ Treat `data/`, `log/`, and `checkpoints/` as runtime/model artifacts, not core s
 
 ## Build, Test, and Development Commands
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv310
+source venv310/bin/activate
 python -m pip install -r requirements.txt
 python babel.py input.mp3 -o data/input_zh.mp3
 python babel.py "https://youtu.be/VIDEO_ID" --download-only -o data/source.mp3
-pytest -q
-pytest tests/test_translate.py -q
+python -m pytest -q
+python -m pytest tests/test_translate.py -q
 ```
-Use the first three commands to set up a local environment. Run `babel.py` for end-to-end pipeline checks, and use `pytest` for fast regression validation.
+Use the first three commands to set up a local environment. Run `babel.py` for end-to-end pipeline checks, and run tests in `venv310` for fast regression validation.
 
 ## Coding Style & Naming Conventions
 Target Python 3.10+ style with 4-space indentation and PEP 8 spacing.  
@@ -27,11 +27,12 @@ Add type hints for new public functions and keep imports grouped (stdlib, third-
 There is no committed lint/format config; follow existing style consistently.
 
 ## Testing Guidelines
+Run all tests in the `venv310` virtual environment (`source venv310/bin/activate`) before executing pytest commands.  
 Use `pytest` with `unittest.mock` and `monkeypatch`.  
 Name tests `test_<behavior>` and place them in `tests/test_<module>.py`.  
 Mock external APIs and heavy dependencies (OpenAI, WhisperX, yt-dlp, TTS backends) so unit tests remain offline and fast.  
 For each behavior change, add coverage for both the main path and at least one fallback/error path.  
-Run `pytest -q` before opening a PR.
+Run `python -m pytest -q` before opening a PR.
 
 ## Commit & Pull Request Guidelines
 Recent history uses short, imperative commit subjects (for example, `add summary`, `default output dir data`).  
