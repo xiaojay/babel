@@ -14,7 +14,11 @@ def get_device() -> str:
 
 from tools.transcribe import transcribe
 from tools.reference_audio import extract_reference_audio
-from tools.translate import translate_segments, summarize_translated_segments
+from tools.translate import (
+    translate_segments,
+    summarize_translated_segments,
+    summarize_translated_segments_detailed,
+)
 from tools.synthesize import synthesize_segments
 from tools.concatenate import concatenate_audio
 from tools.youtube_download import download_youtube_mp3, is_youtube_url
@@ -25,6 +29,7 @@ __all__ = [
     "extract_reference_audio",
     "translate_segments",
     "summarize_translated_segments",
+    "summarize_translated_segments_detailed",
     "synthesize_segments",
     "concatenate_audio",
     "download_youtube_mp3",

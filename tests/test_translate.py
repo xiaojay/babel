@@ -273,3 +273,82 @@ class TestSummary:
 
         assert summary == "（无可总结内容）"
         client.chat.completions.create.assert_not_called()
+
+
+class TestDetailedSummary:
+    """Test detailed translation-summary generation."""
+
+    def test_detailed_summary_uses_chunk_merge_and_final_calls(self, monkeypatch):
+        client = MagicMock()
+        client.chat.completions.create.side_effect = [
+            _make_response("分块一摘要"),
+            _make_response("分块二摘要"),
+            _make_response("合并后的综合摘要"),
+            _make_response(
+                "# 目录\n- 主题1：技术趋势\n\n## 主题1：技术趋势\n"
+                "- 核心观点：A\n- 关键论据：B\n- 结论：C\n\n## 总结结论\n总体结论"
+            ),
+        ]
+
+        import tools.translate as mod
+        monkeypatch.setattr(mod, "OpenAI", lambda **kw: client)
+        monkeypatch.setattr(
+            mod,
+            "_split_lines_into_chunks",
+            lambda lines, max_chars=0, overlap_lines=0: [["第一块"], ["第二块"]],
+        )
+
+        summary = mod.summarize_translated_segments_detailed(
+            [
+                {
+                    "start": 0.0,
+                    "end": 300.0,
+                    "text": "hello",
+                    "text_zh": "第一段",
+                    "speaker": "S0",
+                },
+                {
+                    "start": 300.0,
+                    "end": 600.0,
+                    "text": "world",
+                    "text_zh": "第二段",
+                    "speaker": "S0",
+                },
+            ],
+            provider="openai",
+            model="gpt-5-mini-2026-01-01",
+        )
+
+        assert summary.startswith("# 目录")
+        assert client.chat.completions.create.call_count == 4
+        call_kwargs_list = [call.kwargs for call in client.chat.completions.create.call_args_list]
+        assert "第 1/2 个分块" in call_kwargs_list[0]["messages"][1]["content"]
+        assert "已有综合摘要" in call_kwargs_list[2]["messages"][1]["content"]
+        assert "目标篇幅：1200-1800 字；主题数量：3-5" in call_kwargs_list[3]["messages"][1]["content"]
+
+    def test_detailed_summary_returns_placeholder_on_empty_segments(self, monkeypatch):
+        client = MagicMock()
+        import tools.translate as mod
+        monkeypatch.setattr(mod, "OpenAI", lambda **kw: client)
+
+        summary = mod.summarize_translated_segments_detailed(
+            [{"start": 0.0, "end": 1.0, "text": " ", "text_zh": "", "speaker": "S0"}]
+        )
+
+        assert summary == "（无可总结内容）"
+        client.chat.completions.create.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("duration_seconds", "expected"),
+        [
+            (10 * 60, ("1200-1800", "3-5")),
+            (30 * 60, ("1800-3200", "4-7")),
+            (90 * 60, ("3200-5000", "6-10")),
+        ],
+    )
+    def test_detailed_summary_profile_scales_with_duration(
+        self, duration_seconds, expected
+    ):
+        import tools.translate as mod
+
+        assert mod._resolve_detailed_summary_profile(duration_seconds) == expected

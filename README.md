@@ -4,8 +4,9 @@
 
 1. WhisperX 转录 + 说话人分离
 2. LLM 翻译（DeepSeek / OpenAI GPT-5 mini）
-3. 声音克隆合成（Qwen3-TTS / IndexTTS2）
-4. 拼接为单一 MP3
+3. 翻译稿总结（简短 + 详细）
+4. 声音克隆合成（Qwen3-TTS / IndexTTS2）
+5. 拼接为单一 MP3
 
 本仓库包含完整 CLI、分步工具模块以及单元测试，用于将英文播客音频翻译成中文并保留多说话人声线。
 
@@ -103,7 +104,9 @@ python babel.py "https://www.youtube.com/watch?v=VIDEO_ID" --download-only -o po
 ```
 
 默认输出在项目 `data/` 目录下，文件名为输入同名加 `_zh.mp3` 后缀。
-翻译完成后会额外生成同路径、同名的总结文本：`*.summary.txt`。
+翻译完成后默认会额外生成两份总结：
+- 简短总结：`*.summary.txt`
+- 详细总结（目录+主题标题）：`*.summary.detailed.md`
 
 已验证示例（`IndexTTS2`，默认保留中间文件）：
 
@@ -120,6 +123,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 - `--whisper-model`：Whisper 模型大小（默认 `large-v3`）
 - `--translation-provider`：翻译提供方（`deepseek` 或 `openai`，默认 `deepseek`）
 - `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-chat` 或 `gpt-5-mini`）
+- `--summary-mode`：总结模式（`short` / `detailed` / `both`，默认 `both`）
 - `--tts-backend`：语音合成后端（`qwen3` 或 `indextts2`，默认 `indextts2`）
 - `--index-tts-model-dir`：IndexTTS2 模型目录（默认 `checkpoints`）
 - `--index-tts-cfg-path`：IndexTTS2 配置路径（默认 `<index-tts-model-dir>/config.yaml`）
@@ -134,6 +138,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 ```bash
 python babel.py input.mp3 --whisper-model medium -o output_zh.mp3
 python babel.py input.mp3 --translation-provider openai --translation-model gpt-5-mini -o output_zh.mp3
+python babel.py input.mp3 --summary-mode detailed -o output_zh.mp3
 python babel.py input.mp3 --tts-backend indextts2 --index-tts-model-dir /path/to/checkpoints
 python babel.py input.mp3 --concatenate-without-timestamps -o output_zh.mp3
 python babel.py input.mp3 --concatenate-fixed-gap-ms 180 -o output_zh.mp3
@@ -175,8 +180,15 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 
 ### 3.5 翻译稿总结（`tools/translate.py`）
 
-- 在翻译完成后，使用与翻译相同的 provider/model 生成 300-500 字中文总结。
-- 总结输出到与目标音频同路径、同名的 `*.summary.txt`。
+- 支持三种总结模式（`--summary-mode`）：
+  - `short`：仅生成简短总结（300-500 字），输出 `*.summary.txt`
+  - `detailed`：仅生成详细总结（目录+主题标题），输出 `*.summary.detailed.md`
+  - `both`（默认）：同时生成上述两份总结
+- 详细总结会自动按音频时长控制信息密度：
+  - `<20 分钟`：目标 `1200-1800` 字，`3-5` 个主题
+  - `20-60 分钟`：目标 `1800-3200` 字，`4-7` 个主题
+  - `>60 分钟`：目标 `3200-5000` 字，`6-10` 个主题
+- 为避免上下文超限，详细总结采用“分块总结 → 滚动合并 → 最终成文”流程。
 
 ### 4. 声音克隆合成（`tools/synthesize.py`）
 

@@ -2,7 +2,7 @@
 """Babel - 英语播客转中文播客
 
 Pipeline: WhisperX STT + Diarization → LLM Translation → Translation Summary
-→ Voice Clone (Qwen3 / IndexTTS2) → MP3
+→ Detailed Summary → Voice Clone (Qwen3 / IndexTTS2) → MP3
 """
 
 import argparse
@@ -32,6 +32,7 @@ from tools import (
     extract_reference_audio,
     translate_segments,
     summarize_translated_segments,
+    summarize_translated_segments_detailed,
     synthesize_segments,
     concatenate_audio,
     download_youtube_mp3,
@@ -78,6 +79,12 @@ def main() -> None:
         "--translation-model",
         default=None,
         help="翻译模型名（默认随 --translation-provider 自动选择）",
+    )
+    parser.add_argument(
+        "--summary-mode",
+        default="both",
+        choices=["short", "detailed", "both"],
+        help="总结模式：short（简短）/ detailed（详细）/ both（两者，默认）",
     )
     parser.add_argument(
         "--keep-intermediate",
@@ -167,6 +174,9 @@ def main() -> None:
         else:
             output_path = str(data_dir / f"{Path(input_path).stem}_zh.mp3")
         summary_output_path = str(Path(output_path).with_suffix(".summary.txt"))
+        detailed_summary_output_path = str(
+            Path(output_path).with_suffix(".summary.detailed.md")
+        )
 
         # Working directory for intermediate files
         if args.keep_intermediate:
@@ -204,19 +214,35 @@ def main() -> None:
                 os.path.join(work_dir, "translation.json"),
             )
 
-        try:
-            summary_text = summarize_translated_segments(
-                segments,
-                provider=args.translation_provider,
-                model=args.translation_model,
-            )
-            save_text(summary_text, summary_output_path)
-            print(f"[Step 3.5] 总结已写入: {summary_output_path}")
-        except Exception as exc:
-            print(
-                f"[Step 3.5] 警告: 总结生成失败，将继续后续流程: {exc}",
-                file=sys.stderr,
-            )
+        if args.summary_mode in {"short", "both"}:
+            try:
+                summary_text = summarize_translated_segments(
+                    segments,
+                    provider=args.translation_provider,
+                    model=args.translation_model,
+                )
+                save_text(summary_text, summary_output_path)
+                print(f"[Step 3.5] 简短总结已写入: {summary_output_path}")
+            except Exception as exc:
+                print(
+                    f"[Step 3.5] 警告: 简短总结生成失败，将继续后续流程: {exc}",
+                    file=sys.stderr,
+                )
+
+        if args.summary_mode in {"detailed", "both"}:
+            try:
+                detailed_summary_text = summarize_translated_segments_detailed(
+                    segments,
+                    provider=args.translation_provider,
+                    model=args.translation_model,
+                )
+                save_text(detailed_summary_text, detailed_summary_output_path)
+                print(f"[Step 3.6] 详细总结已写入: {detailed_summary_output_path}")
+            except Exception as exc:
+                print(
+                    f"[Step 3.6] 警告: 详细总结生成失败，将继续后续流程: {exc}",
+                    file=sys.stderr,
+                )
         print()
 
         # Step 4: Synthesize with voice cloning
