@@ -1,11 +1,28 @@
 """Add episodes to the site."""
 
+import json
 import re
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_episodes, save_episodes
+
+
+def _get_duration_seconds(audio_path: Path) -> int:
+    """Get audio duration in seconds via ffprobe."""
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "quiet",
+            "-print_format", "json",
+            "-show_format",
+            str(audio_path),
+        ],
+        capture_output=True, text=True,
+    )
+    info = json.loads(result.stdout)
+    return round(float(info["format"]["duration"]))
 
 
 def _slugify(title: str) -> str:
@@ -49,10 +66,8 @@ def add_episode(args):
         en_audio_path = f"audio/{slug}/en.mp3"
         print(f"已复制英文音频: {en_dest}")
 
-    # Get audio metadata
-    from pydub import AudioSegment
-    audio = AudioSegment.from_mp3(str(zh_dest))
-    duration_seconds = round(len(audio) / 1000.0)
+    # Get audio metadata via ffprobe
+    duration_seconds = _get_duration_seconds(zh_dest)
     file_size_bytes = zh_dest.stat().st_size
 
     # Read summaries

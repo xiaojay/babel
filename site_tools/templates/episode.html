@@ -4,42 +4,78 @@
 
 {% block content %}
 <article class="episode-detail">
+    <a class="back-link" href="{{ root }}/">&larr; 返回列表</a>
+
     <h2>{{ episode.title }}</h2>
     <div class="episode-meta">
         <time>{{ episode.pub_date }}</time>
-        <span class="duration">{{ episode.zh_audio_duration_seconds | format_duration }}</span>
+        <span class="sep">&middot;</span>
+        <span>{{ episode.zh_audio_duration_seconds | format_duration }}</span>
+        {% if episode.detailed_summary_md %}
+        <span class="sep">&middot;</span>
+        {% set read_minutes = ((episode.detailed_summary_md | length) / 400) | round | int %}
+        <span>约 {{ read_minutes if read_minutes > 0 else 1 }} 分钟阅读</span>
+        {% endif %}
     </div>
 
     <section class="audio-section">
-        <h3>中文音频</h3>
-        <audio controls preload="metadata">
-            <source src="{{ base_url }}/{{ episode.zh_audio }}" type="audio/mpeg">
-        </audio>
+        <div class="audio-label">
+            <span class="lang-badge">中</span> 中文音频
+        </div>
+        <div class="player player-large">
+            <audio preload="metadata">
+                <source src="{{ root }}/{{ episode.zh_audio }}" type="audio/mpeg">
+            </audio>
+            <button class="player-btn" aria-label="播放">
+                <svg class="icon-play" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3v10l8-5z"/></svg>
+                <svg class="icon-pause" style="display:none" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="3" width="3" height="10" rx=".75"/><rect x="9.5" y="3" width="3" height="10" rx=".75"/></svg>
+            </button>
+            <div class="player-track">
+                <div class="player-fill"></div>
+            </div>
+            <span class="player-time">0:00 / {{ episode.zh_audio_duration_seconds | format_duration }}</span>
+        </div>
     </section>
 
     {% if episode.en_audio %}
     <section class="audio-section">
-        <h3>英文原版</h3>
-        <audio controls preload="none">
-            <source src="{{ base_url }}/{{ episode.en_audio }}" type="audio/mpeg">
-        </audio>
+        <div class="audio-label">
+            <span class="lang-badge">EN</span> 英文原版
+        </div>
+        <div class="player player-large">
+            <audio preload="none">
+                <source src="{{ root }}/{{ episode.en_audio }}" type="audio/mpeg">
+            </audio>
+            <button class="player-btn" aria-label="播放">
+                <svg class="icon-play" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3v10l8-5z"/></svg>
+                <svg class="icon-pause" style="display:none" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="3" width="3" height="10" rx=".75"/><rect x="9.5" y="3" width="3" height="10" rx=".75"/></svg>
+            </button>
+            <div class="player-track">
+                <div class="player-fill"></div>
+            </div>
+            <span class="player-time">0:00</span>
+        </div>
     </section>
     {% endif %}
 
     {% if episode.summary %}
-    <section class="summary-section">
-        <h3>摘要</h3>
-        <p>{{ episode.summary }}</p>
+    <section class="content-section">
+        <h3 class="section-heading">摘要</h3>
+        <div class="summary-text">
+            <p>{{ episode.summary }}</p>
+        </div>
     </section>
     {% endif %}
 
     {% if episode.detailed_summary_md %}
-    <section class="detailed-summary">
-        <h3>详细内容</h3>
-        {{ episode.detailed_summary_md | markdown | safe }}
+    <section class="content-section">
+        <h3 class="section-heading">详细内容</h3>
+        <div class="detailed-summary">
+            {{ episode.detailed_summary_md | markdown | safe }}
+        </div>
     </section>
     {% endif %}
 
-    <a class="back-link" href="{{ base_url }}/">&larr; 返回列表</a>
+    <a class="back-link-bottom" href="{{ root }}/">&larr; 返回列表</a>
 </article>
 {% endblock %}

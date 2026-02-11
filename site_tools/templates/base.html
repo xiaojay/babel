@@ -1,30 +1,196 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    <script>
+    (function(){
+        var t = localStorage.getItem('babel-theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ config.title }}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ base_url }}/style.css">
-    <link rel="alternate" type="application/rss+xml" title="{{ config.title }}" href="{{ base_url }}/feed.xml">
+    <link rel="stylesheet" href="{{ root }}/style.css">
+    <link rel="alternate" type="application/rss+xml" title="{{ config.title }}" href="{{ root }}/feed.xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
     {% block head %}{% endblock %}
 </head>
 <body>
+    <svg class="grain" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <filter id="grain-filter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch"/>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#grain-filter)"/>
+    </svg>
+
     <header>
-        <div class="container">
-            <h1><a href="{{ base_url }}/">{{ config.title }}</a></h1>
-            <p class="site-description">{{ config.description }}</p>
-            <nav>
-                <a href="{{ base_url }}/feed.xml">RSS 订阅</a>
+        <div class="container header-inner">
+            <div class="site-brand">
+                <div class="site-title-row">
+                    <span class="seal" aria-hidden="true">译</span>
+                    <a href="{{ root }}/" class="site-title">{{ config.title }}</a>
+                </div>
+                <p class="site-description">{{ config.description }}</p>
+            </div>
+            <nav class="nav-actions">
+                <button class="theme-toggle" aria-label="切换主题">
+                    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                        <circle cx="8" cy="8" r="3"/>
+                        <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/>
+                    </svg>
+                    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13.5 8.5a5.5 5.5 0 1 1-6-6 4.5 4.5 0 0 0 6 6z"/>
+                    </svg>
+                </button>
+                <a href="{{ root }}/feed.xml" class="rss-link" title="RSS 订阅">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="3.5" cy="12.5" r="1.5" fill="currentColor" stroke="none"/>
+                        <path d="M2 8.5a5.5 5.5 0 0 1 5.5 5.5"/>
+                        <path d="M2 4.5a9.5 9.5 0 0 1 9.5 9.5"/>
+                    </svg>
+                    <span>订阅</span>
+                </a>
             </nav>
         </div>
     </header>
+
     <main class="container">
         {% block content %}{% endblock %}
     </main>
+
     <footer>
         <div class="container">
+            <div class="footer-divider"></div>
             <p>由 <a href="https://github.com/jaykchen/babel">Babel</a> 生成</p>
         </div>
     </footer>
+
+    <script>
+    (function() {
+        function formatTime(s) {
+            if (!s || isNaN(s)) return '0:00';
+            s = Math.floor(s);
+            var h = Math.floor(s / 3600);
+            var m = Math.floor((s % 3600) / 60);
+            var sec = s % 60;
+            if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+            return m + ':' + (sec < 10 ? '0' : '') + sec;
+        }
+
+        var currentPlaying = null;
+        var activeDrag = null;
+
+        function seekAt(clientX, ctx) {
+            var rect = ctx.track.getBoundingClientRect();
+            var pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            ctx.fill.style.width = (pct * 100) + '%';
+            if (ctx.audio.duration) {
+                ctx.audio.currentTime = pct * ctx.audio.duration;
+            }
+        }
+
+        document.addEventListener('mousemove', function(e) {
+            if (activeDrag) seekAt(e.clientX, activeDrag);
+        });
+        document.addEventListener('mouseup', function() {
+            if (activeDrag) {
+                document.body.classList.remove('dragging');
+                activeDrag = null;
+            }
+        });
+        document.addEventListener('touchmove', function(e) {
+            if (activeDrag) {
+                e.preventDefault();
+                seekAt(e.touches[0].clientX, activeDrag);
+            }
+        }, { passive: false });
+        document.addEventListener('touchend', function() {
+            if (activeDrag) {
+                document.body.classList.remove('dragging');
+                activeDrag = null;
+            }
+        });
+
+        document.querySelectorAll('.player').forEach(function(container) {
+            var audio = container.querySelector('audio');
+            var btn = container.querySelector('.player-btn');
+            var track = container.querySelector('.player-track');
+            var fill = container.querySelector('.player-fill');
+            var timeEl = container.querySelector('.player-time');
+            var playIcon = btn.querySelector('.icon-play');
+            var pauseIcon = btn.querySelector('.icon-pause');
+            var ctx = { track: track, audio: audio, fill: fill };
+
+            btn.addEventListener('click', function() {
+                if (audio.paused) {
+                    if (currentPlaying && currentPlaying !== audio) {
+                        currentPlaying.pause();
+                    }
+                    audio.play();
+                    currentPlaying = audio;
+                } else {
+                    audio.pause();
+                }
+            });
+
+            audio.addEventListener('play', function() {
+                container.classList.add('playing');
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+            });
+
+            audio.addEventListener('pause', function() {
+                container.classList.remove('playing');
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+            });
+
+            audio.addEventListener('timeupdate', function() {
+                if (audio.duration) {
+                    var pct = (audio.currentTime / audio.duration) * 100;
+                    fill.style.width = pct + '%';
+                    timeEl.textContent = formatTime(audio.currentTime) + ' / ' + formatTime(audio.duration);
+                }
+            });
+
+            audio.addEventListener('loadedmetadata', function() {
+                timeEl.textContent = '0:00 / ' + formatTime(audio.duration);
+            });
+
+            audio.addEventListener('ended', function() {
+                container.classList.remove('playing');
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+                fill.style.width = '0%';
+            });
+
+            track.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                activeDrag = ctx;
+                document.body.classList.add('dragging');
+                seekAt(e.clientX, ctx);
+            });
+
+            track.addEventListener('touchstart', function(e) {
+                activeDrag = ctx;
+                seekAt(e.touches[0].clientX, ctx);
+            });
+        });
+
+        /* Theme toggle */
+        var toggle = document.querySelector('.theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function() {
+                var current = document.documentElement.getAttribute('data-theme') || 'dark';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('babel-theme', next);
+            });
+        }
+    })();
+    </script>
 </body>
 </html>

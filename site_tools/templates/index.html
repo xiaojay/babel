@@ -2,20 +2,37 @@
 
 {% block content %}
 <div class="episode-list">
+    <div class="list-header">
+        <h2>全部剧集</h2>
+        <span class="episode-count">{{ episodes|length }} 集</span>
+    </div>
     {% for ep in episodes %}
-    <article class="episode-card">
-        <h2><a href="{{ base_url }}/episodes/{{ ep.slug }}.html">{{ ep.title }}</a></h2>
+    <article class="episode-card" style="--i: {{ loop.index }}">
+        <h2><a href="{{ root }}/episodes/{{ ep.slug }}.html">{{ ep.title }}</a></h2>
         <div class="episode-meta">
             <time>{{ ep.pub_date }}</time>
-            <span class="duration">{{ ep.zh_audio_duration_seconds | format_duration }}</span>
+            <span class="sep">&middot;</span>
+            <span>{{ ep.zh_audio_duration_seconds | format_duration }}</span>
         </div>
         {% if ep.summary %}
         <p class="episode-summary">{{ ep.summary }}</p>
         {% endif %}
-        <audio controls preload="none">
-            <source src="{{ base_url }}/{{ ep.zh_audio }}" type="audio/mpeg">
-        </audio>
-        <a class="detail-link" href="{{ base_url }}/episodes/{{ ep.slug }}.html">查看详情</a>
+        <div class="episode-footer">
+            <div class="player">
+                <audio preload="none">
+                    <source src="{{ root }}/{{ ep.zh_audio }}" type="audio/mpeg">
+                </audio>
+                <button class="player-btn" aria-label="播放">
+                    <svg class="icon-play" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3v10l8-5z"/></svg>
+                    <svg class="icon-pause" style="display:none" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="3" width="3" height="10" rx=".75"/><rect x="9.5" y="3" width="3" height="10" rx=".75"/></svg>
+                </button>
+                <div class="player-track">
+                    <div class="player-fill"></div>
+                </div>
+                <span class="player-time">0:00 / {{ ep.zh_audio_duration_seconds | format_duration }}</span>
+            </div>
+            <a class="detail-link" href="{{ root }}/episodes/{{ ep.slug }}.html">查看详情 &rarr;</a>
+        </div>
     </article>
     {% else %}
     <p class="empty">暂无剧集。使用 <code>site.py add</code> 添加第一集。</p>

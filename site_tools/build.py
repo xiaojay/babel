@@ -63,18 +63,18 @@ def build_site(args):
         shutil.rmtree(build_dir)
     build_dir.mkdir(parents=True)
 
-    # Render index.html
+    # Render index.html (root="." for same-directory relative paths)
     tpl = env.get_template("index.html")
-    html = tpl.render(config=config, episodes=episodes, base_url=base_url)
+    html = tpl.render(config=config, episodes=episodes, root=".")
     (build_dir / "index.html").write_text(html, encoding="utf-8")
     print(f"已生成: {build_dir / 'index.html'}")
 
-    # Render episode pages
+    # Render episode pages (root=".." since pages live in episodes/)
     episodes_dir = build_dir / "episodes"
     episodes_dir.mkdir(exist_ok=True)
     tpl = env.get_template("episode.html")
     for ep in episodes:
-        html = tpl.render(config=config, episode=ep, base_url=base_url)
+        html = tpl.render(config=config, episode=ep, root="..")
         ep_path = episodes_dir / f"{ep['slug']}.html"
         ep_path.write_text(html, encoding="utf-8")
     print(f"已生成: {len(episodes)} 个剧集页面")
