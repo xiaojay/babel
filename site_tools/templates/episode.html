@@ -9,10 +9,10 @@
     <h2>{{ episode.title }}</h2>
     <div class="episode-meta">
         <time>{{ episode.pub_date }}</time>
-        <span class="sep">&middot;</span>
+        <span class="sep">/</span>
         <span>{{ episode.zh_audio_duration_seconds | format_duration }}</span>
         {% if episode.detailed_summary_md %}
-        <span class="sep">&middot;</span>
+        <span class="sep">/</span>
         {% set read_minutes = ((episode.detailed_summary_md | length) / 400) | round | int %}
         <span>约 {{ read_minutes if read_minutes > 0 else 1 }} 分钟阅读</span>
         {% endif %}
@@ -40,7 +40,7 @@
     {% if episode.en_audio %}
     <section class="audio-section">
         <div class="audio-label">
-            <span class="lang-badge">EN</span> 英文原版
+            <span class="lang-badge lang-badge-en">EN</span> 英文原版
         </div>
         <div class="player player-large">
             <audio preload="none">

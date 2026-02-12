@@ -11,7 +11,7 @@
         <h2><a href="{{ root }}/episodes/{{ ep.slug }}.html">{{ ep.title }}</a></h2>
         <div class="episode-meta">
             <time>{{ ep.pub_date }}</time>
-            <span class="sep">&middot;</span>
+            <span class="sep">/</span>
             <span>{{ ep.zh_audio_duration_seconds | format_duration }}</span>
         </div>
         {% if ep.summary %}

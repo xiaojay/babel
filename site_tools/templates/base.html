@@ -13,18 +13,9 @@
     <title>{% block title %}{{ config.title }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ root }}/style.css">
     <link rel="alternate" type="application/rss+xml" title="{{ config.title }}" href="{{ root }}/feed.xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
     {% block head %}{% endblock %}
 </head>
 <body>
-    <svg class="grain" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-        <filter id="grain-filter">
-            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch"/>
-        </filter>
-        <rect width="100%" height="100%" filter="url(#grain-filter)"/>
-    </svg>
 
     <header>
         <div class="container header-inner">
@@ -64,7 +55,7 @@
     <footer>
         <div class="container">
             <div class="footer-divider"></div>
-            <p>由 <a href="https://github.com/jaykchen/babel">Babel</a> 生成</p>
+            <p><span class="status-dot"></span>由 <a href="https://github.com/jaykchen/babel">Babel</a> 生成</p>
         </div>
     </footer>
 
