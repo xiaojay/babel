@@ -83,6 +83,7 @@ def add_episode(args):
         "slug": slug,
         "title": args.title,
         "pub_date": args.pub_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "added_at": datetime.now(timezone.utc).isoformat(),
         "zh_audio": f"audio/{slug}/zh.mp3",
         "en_audio": en_audio_path,
         "zh_audio_size_bytes": file_size_bytes,
