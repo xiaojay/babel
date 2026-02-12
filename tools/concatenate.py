@@ -23,6 +23,7 @@ def concatenate_audio(
 
     for i, wav_path in enumerate(wav_paths):
         clip = AudioSegment.from_wav(wav_path)
+        clip = clip.fade_in(10).fade_out(10)
 
         if i > 0:
             if use_timestamps:
