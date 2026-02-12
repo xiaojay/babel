@@ -45,7 +45,7 @@ def build_site(args):
     episodes = load_episodes(site_dir)
 
     # Sort episodes by pub_date descending
-    episodes.sort(key=lambda ep: ep["pub_date"], reverse=True)
+    episodes.sort(key=lambda ep: (ep["pub_date"], ep.get("added_at", "")), reverse=True)
 
     # Set up Jinja2
     env = Environment(
