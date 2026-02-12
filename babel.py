@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -101,6 +102,22 @@ def main() -> None:
         dest="keep_intermediate",
         action="store_false",
         help="不保留中间文件（流程结束后自动清理）",
+    )
+
+    parser.add_argument(
+        "--auto-publish",
+        action="store_true",
+        help="转录完成后自动发布到网站",
+    )
+    parser.add_argument(
+        "--publish-title",
+        default=None,
+        help="发布时使用的标题（默认从文件名提取）",
+    )
+    parser.add_argument(
+        "--publish-slug",
+        default=None,
+        help="发布时使用的 URL slug（默认从标题生成）",
     )
     parser.add_argument(
         "--tts-backend", default="indextts2",
@@ -278,6 +295,25 @@ def main() -> None:
 
         print()
         print("完成！")
+        # Step 6: Auto-publish (optional)
+        if args.auto_publish:
+            print()
+            print("[Step 6] 自动发布到网站...")
+            publish_cmd = [
+                sys.executable,
+                str(Path(__file__).parent / "publish.py"),
+                str(output_path),
+            ]
+            if args.publish_title:
+                publish_cmd.extend(["--title", args.publish_title])
+            if args.publish_slug:
+                publish_cmd.extend(["--slug", args.publish_slug])
+            # 查找英文原版
+            en_path = Path(str(output_path).replace("_zh.mp3", ".mp3"))
+            if en_path.exists() and en_path != Path(output_path):
+                publish_cmd.extend(["--en-audio", str(en_path)])
+            subprocess.run(publish_cmd)
+
     finally:
         if not args.keep_intermediate and work_dir is not None:
             shutil.rmtree(work_dir, ignore_errors=True)
