@@ -3,16 +3,19 @@
 {% block content %}
 <div class="episode-list">
     <div class="list-header">
-        <h2>全部剧集</h2>
+        <h2>Mission Files</h2>
         <span class="episode-count">{{ episodes|length }} 集</span>
     </div>
     {% for ep in episodes %}
     <article class="episode-card" style="--i: {{ loop.index }}">
+        <span class="ep-number">{{ "%03d"|format(loop.index) }}</span>
         <h2><a href="{{ root }}/episodes/{{ ep.slug }}.html">{{ ep.title }}</a></h2>
         <div class="episode-meta">
             <time>{{ ep.pub_date }}</time>
             <span class="sep">/</span>
             <span>{{ ep.zh_audio_duration_seconds | format_duration }}</span>
+            <span class="sep">/</span>
+            <span class="status-badge">Translated</span>
         </div>
         {% if ep.summary %}
         <p class="episode-summary">{{ ep.summary }}</p>
@@ -31,7 +34,7 @@
                 </div>
                 <span class="player-time">0:00 / {{ ep.zh_audio_duration_seconds | format_duration }}</span>
             </div>
-            <a class="detail-link" href="{{ root }}/episodes/{{ ep.slug }}.html">查看详情 &rarr;</a>
+            <a class="detail-link" href="{{ root }}/episodes/{{ ep.slug }}.html">briefing &rarr;</a>
         </div>
     </article>
     {% else %}

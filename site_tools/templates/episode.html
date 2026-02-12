@@ -4,7 +4,7 @@
 
 {% block content %}
 <article class="episode-detail">
-    <a class="back-link" href="{{ root }}/">&larr; 返回列表</a>
+    <a class="back-link" href="{{ root }}/">&larr; Return to List</a>
 
     <h2>{{ episode.title }}</h2>
     <div class="episode-meta">
@@ -21,6 +21,7 @@
     <section class="audio-section">
         <div class="audio-label">
             <span class="lang-badge">中</span> 中文音频
+            <span class="sound-only">SOUND ONLY</span>
         </div>
         <div class="player player-large">
             <audio preload="metadata">
@@ -41,6 +42,7 @@
     <section class="audio-section">
         <div class="audio-label">
             <span class="lang-badge lang-badge-en">EN</span> 英文原版
+            <span class="sound-only">SOUND ONLY</span>
         </div>
         <div class="player player-large">
             <audio preload="none">
