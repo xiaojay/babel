@@ -43,7 +43,12 @@ TRANSLATE_PROVIDERS = {
     "deepseek": {
         "api_key_env": "DEEPSEEK_API_KEY",
         "base_url": "https://api.deepseek.com",
-        "default_model": "deepseek-chat",
+        "default_model": "deepseek-flash",
+        # Thinking is on by default and rejects temperature; translation needs neither.
+        "request_options": {
+            "temperature": 0.3,
+            "extra_body": {"thinking": {"type": "disabled"}},
+        },
     },
     "openai": {
         "api_key_env": "OPENAI_API_KEY",
@@ -82,6 +87,11 @@ def _build_translate_client(provider: str) -> tuple[OpenAI, str]:
     return client, config["default_model"]
 
 
+def _provider_request_options(provider: str) -> dict:
+    # gpt-5-mini only supports the default temperature value, so openai sends none.
+    return dict(TRANSLATE_PROVIDERS.get(provider, {}).get("request_options", {}))
+
+
 def _resolve_model_name(model: str | None, default_model: str) -> str:
     if model and model.strip():
         return model.strip()
@@ -110,9 +120,8 @@ def _create_chat_completion(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_msg},
         ],
+        **_provider_request_options(provider),
     }
-    if provider == "deepseek":
-        request_kwargs["temperature"] = 0.3
 
     response = client.chat.completions.create(**request_kwargs)
     return (response.choices[0].message.content or "").strip()
@@ -243,10 +252,8 @@ def translate_segments(
                 {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
                 {"role": "user", "content": user_msg},
             ],
+            **_provider_request_options(provider),
         }
-        # gpt-5-mini only supports the default temperature value; avoid sending it.
-        if provider == "deepseek":
-            request_kwargs["temperature"] = 0.3
 
         response = client.chat.completions.create(**request_kwargs)
 

@@ -152,7 +152,9 @@ class TestProviderSelection:
             "base_url": "https://api.deepseek.com",
         }
         call_kwargs = client.chat.completions.create.call_args.kwargs
-        assert call_kwargs["model"] == "deepseek-chat"
+        assert call_kwargs["model"] == "deepseek-flash"
+        assert call_kwargs["temperature"] == 0.3
+        assert call_kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
         assert result[0]["text_zh"] == "你好"
 
     def test_openai_provider_uses_gpt5_mini_by_default(self, monkeypatch):
@@ -175,6 +177,8 @@ class TestProviderSelection:
         assert captured_kwargs == {"api_key": "fake_openai_key"}
         call_kwargs = client.chat.completions.create.call_args.kwargs
         assert call_kwargs["model"] == "gpt-5-mini"
+        assert "temperature" not in call_kwargs
+        assert "extra_body" not in call_kwargs
         assert result[0]["text_zh"] == "你好"
 
     def test_openai_provider_supports_custom_model(self, monkeypatch):

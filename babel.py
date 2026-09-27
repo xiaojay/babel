@@ -81,7 +81,7 @@ def main() -> None:
         default=None,
         help=(
             "翻译模型名（默认随 --translation-provider 自动选择："
-            "openai 为 gpt-5-mini，deepseek 为 deepseek-chat）"
+            "openai 为 gpt-5-mini，deepseek 为 deepseek-flash）"
         ),
     )
     parser.add_argument(

@@ -122,7 +122,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 - `-o, --output`：输出文件路径（默认在 `data/` 下生成 `input_zh.mp3`；`--download-only` 时为下载的 MP3）
 - `--whisper-model`：Whisper 模型大小（默认 `large-v3`）
 - `--translation-provider`：翻译提供方（`deepseek` 或 `openai`，默认 `deepseek`）
-- `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-chat` 或 `gpt-5-mini`）
+- `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-flash` 或 `gpt-5-mini`）
 - `--summary-mode`：总结模式（`short` / `detailed` / `both`，默认 `both`）
 - `--tts-backend`：语音合成后端（`qwen3` 或 `indextts2`，默认 `indextts2`）
 - `--index-tts-model-dir`：IndexTTS2 模型目录（默认 `checkpoints`）
@@ -172,7 +172,7 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 ### 3. 翻译（`tools/translate.py`）
 
 - 支持两种翻译提供方：
-  - `deepseek`（默认）：`openai` SDK + `base_url=https://api.deepseek.com`，默认模型 `deepseek-chat`
+  - `deepseek`（默认）：`openai` SDK + `base_url=https://api.deepseek.com`，默认模型 `deepseek-flash`（关闭思考模式）
   - `openai`：默认模型 `gpt-5-mini`
 - 分批翻译，每批默认 20 段。
 - 解析返回文本中的编号，写入 `text_zh` 字段。
