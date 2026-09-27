@@ -8,6 +8,7 @@ DEFAULT_CONFIG = {
     "description": "英语播客的中文翻译版",
     "author": "Babel",
     "base_url": "https://example.com/podcast",
+    "audio_base_url": "",
     "language": "zh-cn",
     "cover_url": "",
 }
@@ -25,6 +26,8 @@ def init_site(args):
         config["title"] = args.title
     if args.base_url:
         config["base_url"] = args.base_url.rstrip("/")
+    if args.audio_base_url:
+        config["audio_base_url"] = args.audio_base_url.rstrip("/")
     if args.description:
         config["description"] = args.description
     if args.author:

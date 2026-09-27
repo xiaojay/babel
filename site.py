@@ -26,6 +26,10 @@ def main() -> None:
     p_init = subparsers.add_parser("init", help="初始化站点目录")
     p_init.add_argument("--title", default=None, help="站点标题")
     p_init.add_argument("--base-url", default=None, help="站点基础 URL")
+    p_init.add_argument(
+        "--audio-base-url", default=None,
+        help="音频文件基础 URL（如 CDN；默认与站点同源）",
+    )
     p_init.add_argument("--description", default=None, help="站点描述")
     p_init.add_argument("--author", default=None, help="作者名称")
 

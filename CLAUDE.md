@@ -72,7 +72,9 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 
 ```bash
 # 初始化站点（创建 site/ 目录、config.json、episodes.json）
-.venv/bin/python site.py init --title "我的播客" --base-url "https://example.com/podcast"
+# --audio-base-url 可选：音频托管在 CDN 时指定
+.venv/bin/python site.py init --title "我的播客" --base-url "https://example.com/podcast" \
+  [--audio-base-url "https://cdn.example.com"]
 
 # 添加一集（从 babel.py 产出文件）
 .venv/bin/python site.py add \
@@ -87,7 +89,18 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 
 # 本地预览（默认 http://localhost:8000）
 .venv/bin/python site.py serve [--port 8000]
+
+# 一键发布：上传音频到 R2 → site.py add → build → wrangler pages deploy
+.venv/bin/python publish.py data/input_zh.mp3 [--title T] [--slug S] [--skip-upload] [--skip-deploy]
 ```
+
+### 自动发布
+
+`publish.py`（也可通过 `babel.py --auto-publish` 触发）依赖 `wrangler` CLI：
+
+- 摘要文件从中文 MP3 同目录按 `babel.py` 的命名查找（`<name>_zh.summary.txt`、`<name>_zh.summary.detailed.md`）
+- 英文原版默认取同目录的 `<name>.mp3`
+- 部署前会删除 `build/audio` 符号链接，音频只存在于 R2，因此 `site/config.json` 的 `audio_base_url` 必须指向 CDN
 
 ### 站点目录结构
 
@@ -109,7 +122,7 @@ site/
 | 模块 | 功能 |
 |------|------|
 | `site_tools/config.py` | 站点初始化、config.json / episodes.json 读写 |
-| `site_tools/episodes.py` | 添加剧集：复制音频、用 pydub 计算时长/大小、读取摘要文件、更新 episodes.json |
+| `site_tools/episodes.py` | 添加剧集：复制音频、用 ffprobe 计算时长、读取摘要文件、更新 episodes.json |
 | `site_tools/build.py` | Jinja2 渲染 HTML + RSS，复制 CSS，创建音频符号链接 |
 | `site_tools/serve.py` | 基于 `http.server` 的本地预览服务器 |
 
@@ -119,7 +132,8 @@ site/
 - `title` — 站点标题
 - `description` — 站点描述
 - `author` — 作者
-- `base_url` — 部署后的完整 URL（用于 RSS `<enclosure>` 和页面链接）
+- `base_url` — 部署后的完整 URL（用于 RSS 和页面链接）
+- `audio_base_url` — 音频文件的基础 URL（如 CDN，可选）。留空时音频与站点同源：HTML 用相对路径，RSS `<enclosure>` 用 `base_url`
 - `language` — 语言代码（默认 `zh-cn`）
 - `cover_url` — 播客封面图 URL（可选）
 
@@ -141,7 +155,7 @@ site/
 
 ### 依赖
 
-`jinja2`、`markdown`（已加入 requirements.txt）。`pydub` 仅在 `add` 命令中延迟导入。
+`jinja2`、`markdown`（已加入 requirements.txt）。`add` 命令通过 `ffprobe`（随 ffmpeg 安装）读取音频时长。
 
 ## Testing Patterns
 

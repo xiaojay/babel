@@ -57,6 +57,9 @@ def build_site(args):
     env.filters["markdown"] = _render_markdown
 
     base_url = config.get("base_url", "").rstrip("/")
+    # Audio may live on a separate host (e.g. CDN); otherwise it sits next to
+    # the pages, so HTML uses relative paths and RSS uses base_url.
+    audio_base_url = (config.get("audio_base_url") or "").rstrip("/")
 
     # Clean and recreate build dir (except audio symlink target)
     if build_dir.exists():
@@ -65,7 +68,12 @@ def build_site(args):
 
     # Render index.html (root="." for same-directory relative paths)
     tpl = env.get_template("index.html")
-    html = tpl.render(config=config, episodes=episodes, root=".")
+    html = tpl.render(
+        config=config,
+        episodes=episodes,
+        root=".",
+        audio_base_url=audio_base_url or ".",
+    )
     (build_dir / "index.html").write_text(html, encoding="utf-8")
     print(f"已生成: {build_dir / 'index.html'}")
 
@@ -74,7 +82,12 @@ def build_site(args):
     episodes_dir.mkdir(exist_ok=True)
     tpl = env.get_template("episode.html")
     for ep in episodes:
-        html = tpl.render(config=config, episode=ep, root="..")
+        html = tpl.render(
+            config=config,
+            episode=ep,
+            root="..",
+            audio_base_url=audio_base_url or "..",
+        )
         ep_path = episodes_dir / f"{ep['slug']}.html"
         ep_path.write_text(html, encoding="utf-8")
     print(f"已生成: {len(episodes)} 个剧集页面")
@@ -85,6 +98,7 @@ def build_site(args):
         config=config,
         episodes=episodes,
         base_url=base_url,
+        audio_base_url=audio_base_url or base_url,
         build_date=format_datetime(datetime.now(timezone.utc)),
     )
     (build_dir / "feed.xml").write_text(rss, encoding="utf-8")
