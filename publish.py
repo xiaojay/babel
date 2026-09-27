@@ -71,19 +71,18 @@ def upload_to_r2(local_path: Path, r2_key: str) -> bool:
 def add_episode(site_dir: Path, title: str, slug: str, zh_audio: Path, en_audio: Path = None):
     """调用 site.py add 添加剧集."""
     cmd = [
-        "python", "site.py", "add",
+        sys.executable, "site.py", "add",
         "--title", title,
         "--slug", slug,
         "--zh-audio", str(zh_audio),
     ]
     if en_audio and en_audio.exists():
         cmd.extend(["--en-audio", str(en_audio)])
-    
-    # 查找 summary 文件
-    babel_dir = zh_audio.parent / f"{zh_audio.stem.replace(_zh, )}_babel"
-    summary_file = babel_dir / f"{zh_audio.stem.replace(_zh, )}.summary.txt"
-    detailed_file = babel_dir / f"{zh_audio.stem.replace(_zh, )}.summary.detailed.md"
-    
+
+    # 查找 summary 文件（babel.py 写在输出 MP3 同目录）
+    summary_file = zh_audio.with_suffix(".summary.txt")
+    detailed_file = zh_audio.with_suffix(".summary.detailed.md")
+
     if summary_file.exists():
         cmd.extend(["--summary", str(summary_file)])
     if detailed_file.exists():
@@ -100,7 +99,7 @@ def add_episode(site_dir: Path, title: str, slug: str, zh_audio: Path, en_audio:
 def build_and_deploy(site_dir: Path) -> bool:
     """构建并部署网站."""
     # Build
-    result = run_cmd(["python", "site.py", "build"], check=False)
+    result = run_cmd([sys.executable, "site.py", "build"], check=False)
     if result.returncode != 0:
         print(f"  ❌ 构建失败: {result.stderr}")
         return False

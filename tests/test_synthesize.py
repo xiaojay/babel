@@ -5,8 +5,10 @@ import sys
 from types import ModuleType
 from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")
+pytest.importorskip("torch")
 
 
 @pytest.fixture(autouse=True)
