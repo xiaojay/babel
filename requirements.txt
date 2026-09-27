@@ -2,6 +2,7 @@ whisperx
 qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS.git
 openai
 pydub
+audioop-lts; python_version >= "3.13"
 python-dotenv
 torch
 soundfile
