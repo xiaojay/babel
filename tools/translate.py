@@ -50,6 +50,11 @@ TRANSLATE_PROVIDERS = {
         "base_url": None,
         "default_model": "gpt-5-mini",
     },
+    "openrouter": {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "base_url": "https://openrouter.ai/api/v1",
+        "default_model": "deepseek/deepseek-chat-v3-0324",
+    },
 }
 
 
