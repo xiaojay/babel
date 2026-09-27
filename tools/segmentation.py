@@ -383,10 +383,14 @@ def resegment(
             min_seconds=min_segment_seconds,
             max_merge_gap=max_merge_gap,
         ):
+            text = " ".join(w["text"] for w in chunk)
+            # Whisper sometimes emits a line of dots; there is nothing to say in it.
+            if not any(ch.isalnum() for ch in text):
+                continue
             segments.append({
                 "start": round(min(w["start"] for w in chunk), 3),
                 "end": round(max(w["end"] for w in chunk), 3),
-                "text": " ".join(w["text"] for w in chunk),
+                "text": text,
                 "speaker": chunk[0]["speaker"],
             })
         turn = []

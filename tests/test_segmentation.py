@@ -353,6 +353,17 @@ class TestIncompleteInput:
         assert result[0]["start"] == 0.0
         assert result[0]["end"] == words[-1]["end"]
 
+    def test_drops_segment_with_only_punctuation(self):
+        raw = [
+            _segment(_words("First part here.", 0.0, "SPEAKER_00")),
+            _segment(_words(". . . . .", 5.0, "SPEAKER_00")),
+            _segment(_words("Second part here.", 12.0, "SPEAKER_00")),
+        ]
+
+        result = resegment(raw)
+
+        assert [s["text"] for s in result] == ["First part here.", "Second part here."]
+
     def test_unlabeled_word_takes_neighbouring_speaker(self):
         a = _long_turn("SPEAKER_00", 0.0)
         b = _long_turn("SPEAKER_01", 60.0)
