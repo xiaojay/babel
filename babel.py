@@ -71,6 +71,45 @@ def main() -> None:
         help="Whisper 模型大小（默认 large-v3）",
     )
     parser.add_argument(
+        "--language", default="en",
+        help="源音频语言代码（默认 en；auto 为自动检测）",
+    )
+    parser.add_argument(
+        "--hotwords", default=None,
+        help=(
+            "转录热词，逗号分隔（人名、公司名等）。"
+            "Whisper 可能把热词当作内容重复输出，使用后请检查转录结果"
+        ),
+    )
+    parser.add_argument(
+        "--num-speakers", type=int, default=None, metavar="N",
+        help="说话人数量（已知时指定，可提高说话人分离的准确度）",
+    )
+    parser.add_argument(
+        "--min-speakers", type=int, default=None, metavar="N",
+        help="说话人数量下限",
+    )
+    parser.add_argument(
+        "--max-speakers", type=int, default=None, metavar="N",
+        help="说话人数量上限",
+    )
+    parser.add_argument(
+        "--diarization-model", default=None, metavar="NAME_OR_PATH",
+        help="说话人分离模型：Hugging Face 模型名或本地目录（默认由 WhisperX 版本决定）",
+    )
+    parser.add_argument(
+        "--min-speaker-seconds", type=float, default=15.0, metavar="SEC",
+        help="总时长低于该值的说话人会并入相邻的说话人（默认 15；0 为不合并）",
+    )
+    parser.add_argument(
+        "--transcribe-only", action="store_true",
+        help="只执行第 1 步并保存转录结果后退出；之后不带此参数再运行，会从第 2 步继续",
+    )
+    parser.add_argument(
+        "--no-resegment", action="store_true",
+        help="保留 WhisperX 的原始分段，不按词级时间戳重新分段",
+    )
+    parser.add_argument(
         "--translation-provider",
         default="openai",
         choices=["deepseek", "openai", "openrouter"],
@@ -159,6 +198,17 @@ def main() -> None:
     if args.concatenate_fixed_gap_ms is not None and args.concatenate_fixed_gap_ms < 0:
         print("错误: --concatenate-fixed-gap-ms 必须 >= 0", file=sys.stderr)
         sys.exit(1)
+    if args.transcribe_only and not args.keep_intermediate:
+        print("错误: --transcribe-only 需要保留中间文件", file=sys.stderr)
+        sys.exit(1)
+    if args.num_speakers is not None and (
+        args.min_speakers is not None or args.max_speakers is not None
+    ):
+        print(
+            "错误: --num-speakers 不能与 --min-speakers / --max-speakers 同时使用",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     try:
         if source_is_youtube:
@@ -217,13 +267,34 @@ def main() -> None:
                 cached = json.load(f)
             segments = cached["segments"] if "segments" in cached else cached
         else:
-            segments = transcribe(input_path, model_size=args.whisper_model)
+            segments = transcribe(
+                input_path,
+                model_size=args.whisper_model,
+                language=None if args.language == "auto" else args.language,
+                hotwords=args.hotwords,
+                num_speakers=args.num_speakers,
+                min_speakers=args.min_speakers,
+                max_speakers=args.max_speakers,
+                diarization_model=args.diarization_model,
+                resegment_words=not args.no_resegment,
+                min_speaker_seconds=args.min_speaker_seconds,
+                raw_output_path=(
+                    os.path.join(work_dir, "transcription_raw.json")
+                    if args.keep_intermediate
+                    else None
+                ),
+            )
             if args.keep_intermediate:
                 save_intermediate(
                     {"segments": segments},
                     transcription_cache,
                 )
         print()
+
+        if args.transcribe_only:
+            print(f"转录结果: {transcription_cache}")
+            print("完成！")
+            return
 
         # Step 2: Extract reference audio per speaker
         ref_dir = os.path.join(work_dir, "ref_audio")

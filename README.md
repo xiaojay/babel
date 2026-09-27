@@ -121,6 +121,14 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 - `input`（必填）：输入英文播客 MP3，或 YouTube 链接
 - `-o, --output`：输出文件路径（默认在 `data/` 下生成 `input_zh.mp3`；`--download-only` 时为下载的 MP3）
 - `--whisper-model`：Whisper 模型大小（默认 `large-v3`）
+- `--language`：源音频语言代码（默认 `en`；`auto` 为自动检测）
+- `--hotwords`：转录热词，逗号分隔（人名、公司名等）。默认不使用，见下方说明
+- `--num-speakers N`：说话人数量（已知时指定）
+- `--min-speakers N` / `--max-speakers N`：说话人数量的下限和上限
+- `--diarization-model NAME_OR_PATH`：说话人分离模型，可以是 Hugging Face 模型名或本地目录（默认由 WhisperX 版本决定：3.7 为 `speaker-diarization-3.1`，3.8 为 `speaker-diarization-community-1`）
+- `--min-speaker-seconds SEC`：总时长低于该值的说话人会并入相邻的说话人（默认 `15`；`0` 为不合并）
+- `--no-resegment`：保留 WhisperX 的原始分段
+- `--transcribe-only`：只执行第 1 步并保存转录结果后退出
 - `--translation-provider`：翻译提供方（`deepseek` 或 `openai`，默认 `deepseek`）
 - `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-flash` 或 `gpt-5-mini`）
 - `--summary-mode`：总结模式（`short` / `detailed` / `both`，默认 `both`）
@@ -150,8 +158,28 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 
 ### 1. 转录与说话人分离（`tools/transcribe.py`）
 
-- 使用 WhisperX 转录，并进行字级时间对齐。
+- 使用 WhisperX 转录，并进行字级时间对齐。默认按英文识别，不做语言检测。
 - 如果设置了 `HF_TOKEN`，启用说话人分离并为片段标注 `speaker`。
+- 热词默认关闭。实测中把节目标题里的词作为热词时，Whisper 会把它们当作内容反复输出，并挤掉真实内容。需要时用 `--hotwords` 手动指定，并检查转录结果。
+- 转录后按词级时间戳和说话人重新分段（`tools/segmentation.py`）：
+  - 每个片段只属于一个说话人，说话人在片段中途切换时会切开。
+  - 同一说话人的碎片合并成句，目标长度约 8 秒，上限 15 秒。
+  - 句子保持完整，整句归属于说了其中大部分词的说话人；超过 1 秒的句间停顿不合并。
+  - 总时长过短的说话人（默认低于 15 秒）并入相邻的说话人，避免用极短的音频克隆声音。
+- 保留中间文件时，词级原始结果写入 `transcription_raw.json`。
+- 指定本地模型目录（`--diarization-model /path/to/model`）时不需要 `HF_TOKEN`，也不需要联网。
+
+在独立环境里运行转录：WhisperX 3.8 需要 numpy 2，而 IndexTTS2 要求 numpy 1.26，两者不能装在同一个环境里。可以分两步运行，第二步会发现已有的转录结果并跳过第 1 步：
+
+```bash
+# 第 1 步：在装有 WhisperX 3.8 的环境里
+/path/to/asr-venv/bin/python babel.py input.mp3 --transcribe-only \
+  --diarization-model /path/to/speaker-diarization-community-1
+
+# 其余步骤：在装有 IndexTTS2 的环境里
+/path/to/tts-venv/bin/python babel.py input.mp3
+```
+- 每个模型用完即释放显存，再进入下一步。
 - 设备选择逻辑：CUDA 优先，其次 MPS，最后 CPU。
 - 在 `babel.py` 中对 `torch.load` 做兼容性补丁，以适配 pyannote 检查点。
 

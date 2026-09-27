@@ -40,7 +40,8 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 
 | Module | Function | External Service |
 |--------|----------|-----------------|
-| `transcribe.py` | `transcribe()` — WhisperX speech-to-text + speaker diarization | WhisperX (local), HF_TOKEN for diarization |
+| `transcribe.py` | `transcribe()` — WhisperX speech-to-text + speaker diarization, then re-segmentation | WhisperX (local), HF_TOKEN for diarization |
+| `segmentation.py` | `resegment()` — rebuilds single-speaker, sentence-sized segments from word-level output; merges spurious speakers | pure Python |
 | `reference_audio.py` | `extract_reference_audio()` — picks best 3-10s clip per speaker using quality scoring (SNR, speech ratio, loudness, clipping) | pydub/soundfile |
 | `translate.py` | `translate_segments()` + `summarize_translated_segments()` — batch LLM translation (20 segs/call) with numbered-line parsing | DeepSeek or OpenAI API |
 | `synthesize.py` | `synthesize_segments()` — voice-cloned TTS | IndexTTS2 (default) or Qwen3-TTS |
@@ -49,7 +50,7 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 
 **Device selection** (`tools/__init__.py`): CUDA → MPS → CPU. WhisperX only supports CUDA/CPU, so MPS falls back to CPU for transcription.
 
-**Work directory:** `data/<input_name>_babel/` stores intermediate files (transcription.json, translation.json, ref_audio/, tts_clips/).
+**Work directory:** `data/<input_name>_babel/` stores intermediate files (transcription_raw.json, transcription.json, translation.json, ref_audio/, tts_clips/). `babel.py` skips a step when its output already exists there.
 
 ## Environment Variables
 
@@ -61,6 +62,11 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 ## Key Implementation Details
 
 - `babel.py` patches `torch.load` to force `weights_only=False` (PyTorch 2.6+ broke pyannote checkpoint loading)
+- `transcribe()` works with whisperx 3.7 and 3.8: the `DiarizationPipeline` token argument was renamed from `use_auth_token` to `token` in 3.8, so it is chosen by inspecting the signature
+- WhisperX segments are not used as-is: `resegment()` works from the word list, so segmentation can be re-run from `transcription_raw.json` without the GPU
+- Each sentence goes to the speaker who says most of it (votes weighted by the speaker's share of all speech); passages Whisper wrote without punctuation are split at pauses and voted clause by clause
+- Segmentation defaults: target 8s, max 15s, merge gap 1s; lengths are measured with word and pause durations capped at 1s because the aligner sometimes stretches them; speakers under 15s of speech (and under 5% of all speech) are merged into their neighbour
+- Whisper hotwords are off by default: title-derived hotwords made Whisper repeat them as content and drop real speech (measured 2026-09-27); `--hotwords` is manual only
 - Translation uses numbered-line format for batch parsing; falls back to original text on parse failure
 - Reference audio scoring: speech_ratio (35%), SNR (25%), loudness (15%), duration preference (15%), clipping penalty (-25%); composes multiple short clips if no 3-10s segment exists
 

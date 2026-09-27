@@ -1,4 +1,4 @@
-whisperx
+whisperx>=3.7.6,<3.9
 qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS.git
 openai
 pydub
