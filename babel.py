@@ -111,9 +111,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--translation-provider",
-        default="openai",
+        default="deepseek",
         choices=["deepseek", "openai", "openrouter"],
-        help="翻译提供方：deepseek 或 openai（默认 openai）",
+        help="翻译提供方：deepseek、openai 或 openrouter（默认 deepseek）",
     )
     parser.add_argument(
         "--translation-model",

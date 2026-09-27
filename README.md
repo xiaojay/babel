@@ -129,7 +129,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 - `--min-speaker-seconds SEC`：总时长低于该值的说话人会并入相邻的说话人（默认 `15`；`0` 为不合并）
 - `--no-resegment`：保留 WhisperX 的原始分段
 - `--transcribe-only`：只执行第 1 步并保存转录结果后退出
-- `--translation-provider`：翻译提供方（`deepseek` 或 `openai`，默认 `deepseek`）
+- `--translation-provider`：翻译提供方（`deepseek`、`openai` 或 `openrouter`，默认 `deepseek`）
 - `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-flash` 或 `gpt-5-mini`）
 - `--summary-mode`：总结模式（`short` / `detailed` / `both`，默认 `both`）
 - `--tts-backend`：语音合成后端（`qwen3` 或 `indextts2`，默认 `indextts2`）
