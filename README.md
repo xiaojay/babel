@@ -36,7 +36,7 @@ Python 依赖（见 `requirements.txt`）：
 - `python-dotenv`
 - `torch`
 - `soundfile`
-- `yt-dlp`
+- `yt-dlp`（需要较新的版本，旧版本下载 YouTube 会返回 `HTTP Error 403`）
 - `pytest`
 
 ## 环境变量
@@ -85,6 +85,12 @@ export DEEPSEEK_API_KEY=your_deepseek_key
 export OPENAI_API_KEY=your_openai_key
 ```
 
+如果直连不了 YouTube，可以只给下载这一步指定代理，其他请求不受影响：
+
+```bash
+export YOUTUBE_PROXY=http://127.0.0.1:7890
+```
+
 如果你的环境使用了 SOCKS 代理（例如设置了 `ALL_PROXY=socks5://...`），还需要安装：
 
 ```bash
@@ -127,6 +133,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 
 - `input`（必填）：输入英文播客 MP3，或 YouTube 链接
 - `-o, --output`：输出文件路径（默认在 `data/` 下生成 `input_zh.mp3`；`--download-only` 时为下载的 MP3）
+- `--youtube-proxy URL`：下载 YouTube 音频使用的代理（默认读取 `YOUTUBE_PROXY`）
 - `--whisper-model`：Whisper 模型大小（默认 `large-v3`）
 - `--language`：源音频语言代码（默认 `en`；`auto` 为自动检测）
 - `--hotwords`：转录热词，逗号分隔（人名、公司名等）。默认不使用，见下方说明
@@ -291,6 +298,8 @@ pytest -q
 - 没有 `HF_TOKEN`：说话人分离会跳过，只有 `SPEAKER_00`。
 - 翻译失败：确认已按 `--translation-provider` 设置对应密钥（`DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY`）。
 - 代理环境报错 `Using SOCKS proxy, but the 'socksio' package is not installed`：安装 `socksio`（见“快速开始”）。
+- 下载 YouTube 超时或无响应：设置 `YOUTUBE_PROXY`，或使用 `--youtube-proxy`。
+- 下载 YouTube 报 `HTTP Error 403: Forbidden`：`yt-dlp` 版本过旧，执行 `pip install -U "yt-dlp[default]"`。
 - `pydub` 报错：确认 `ffmpeg` 已安装并可在 PATH 中找到。
 - CUDA/MPS 性能不佳：可切换 `--whisper-model` 为更小模型以减少显存占用。
 - 使用 `indextts2` 报 `ModuleNotFoundError`：先按上文安装 `indextts`，并确认模型目录存在 `config.yaml` 与权重文件。

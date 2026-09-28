@@ -67,6 +67,10 @@ def main() -> None:
         help="仅下载 YouTube 音频为 MP3 并退出，不执行后续翻译流水线",
     )
     parser.add_argument(
+        "--youtube-proxy", default=None, metavar="URL",
+        help="下载 YouTube 音频使用的代理，例如 http://127.0.0.1:7890（默认读取 YOUTUBE_PROXY）",
+    )
+    parser.add_argument(
         "--whisper-model", default="large-v3",
         help="Whisper 模型大小（默认 large-v3）",
     )
@@ -222,7 +226,9 @@ def main() -> None:
                     if args.output
                     else {"output_dir": str(data_dir)}
                 )
-                downloaded_path = download_youtube_mp3(raw_input, **download_kwargs)
+                downloaded_path = download_youtube_mp3(
+                    raw_input, proxy=args.youtube_proxy, **download_kwargs
+                )
                 print(f"[Step 0] 下载完成: {downloaded_path}")
                 print()
                 print("完成！")
@@ -234,7 +240,9 @@ def main() -> None:
                 download_tmp_dir = tempfile.mkdtemp(prefix="babel_youtube_")
                 download_dir = download_tmp_dir
 
-            input_path = download_youtube_mp3(raw_input, output_dir=download_dir)
+            input_path = download_youtube_mp3(
+                raw_input, output_dir=download_dir, proxy=args.youtube_proxy
+            )
             print(f"[Step 0] 下载完成: {input_path}")
         else:
             input_path = raw_input

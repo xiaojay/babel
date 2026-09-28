@@ -46,7 +46,7 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 | `translate.py` | `translate_segments()` + `summarize_translated_segments()` — batch LLM translation (20 segs/call) with numbered-line parsing | DeepSeek or OpenAI API |
 | `synthesize.py` | `synthesize_segments()` — voice-cloned TTS | IndexTTS-2.5 (default), IndexTTS2 or Qwen3-TTS |
 | `concatenate.py` | `concatenate_audio()` — assembles clips with gap calculation (100ms–3000ms bounds from original timing) | pydub |
-| `youtube_download.py` | `download_youtube_mp3()` — validates YouTube URLs and downloads via yt-dlp | yt-dlp |
+| `youtube_download.py` | `download_youtube_mp3()` — validates YouTube URLs and downloads via yt-dlp, optionally through `YOUTUBE_PROXY` | yt-dlp |
 
 **Device selection** (`tools/__init__.py`): CUDA → MPS → CPU. WhisperX only supports CUDA/CPU, so MPS falls back to CPU for transcription.
 
@@ -58,6 +58,7 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 - `DEEPSEEK_API_KEY` — required when using `--translation-provider deepseek` (default)
 - `OPENAI_API_KEY` — required when using `--translation-provider openai`
 - `HF_ENDPOINT` — optional HuggingFace mirror URL
+- `YOUTUBE_PROXY` — optional proxy for the YouTube download only, e.g. `http://127.0.0.1:7890`; other requests are not affected
 
 ## Key Implementation Details
 

@@ -9,10 +9,12 @@ import pytest
 from tools.youtube_download import download_youtube_mp3, is_youtube_url
 
 
-def _build_fake_yt_dlp():
+def _build_fake_yt_dlp(seen_opts=None):
     class _FakeYoutubeDL:
         def __init__(self, opts):
             self.opts = opts
+            if seen_opts is not None:
+                seen_opts.update(opts)
 
         def __enter__(self):
             return self
@@ -142,3 +144,50 @@ class TestDownloadYoutubeMp3:
 
         assert output == str((tmp_path / "custom_name.mp3").resolve())
         assert (tmp_path / "custom_name.mp3").is_file()
+
+
+class TestProxy:
+    """Test the proxy used for the download."""
+
+    def _download(self, tmp_path, monkeypatch, **kwargs):
+        import tools.youtube_download as mod
+
+        seen_opts = {}
+        monkeypatch.setattr(mod.shutil, "which", lambda _: "/usr/bin/ffmpeg")
+        monkeypatch.setattr(
+            mod.importlib,
+            "import_module",
+            lambda name: _build_fake_yt_dlp(seen_opts),
+        )
+        mod.download_youtube_mp3(
+            "https://youtu.be/abc", output_dir=str(tmp_path), **kwargs
+        )
+        return seen_opts
+
+    def test_no_proxy_by_default(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("YOUTUBE_PROXY", raising=False)
+
+        opts = self._download(tmp_path, monkeypatch)
+
+        assert "proxy" not in opts
+
+    def test_reads_proxy_from_environment(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_PROXY", "http://127.0.0.1:7890")
+
+        opts = self._download(tmp_path, monkeypatch)
+
+        assert opts["proxy"] == "http://127.0.0.1:7890"
+
+    def test_argument_overrides_environment(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_PROXY", "http://127.0.0.1:7890")
+
+        opts = self._download(tmp_path, monkeypatch, proxy="socks5://10.0.0.1:1080")
+
+        assert opts["proxy"] == "socks5://10.0.0.1:1080"
+
+    def test_blank_proxy_is_ignored(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_PROXY", "  ")
+
+        opts = self._download(tmp_path, monkeypatch)
+
+        assert "proxy" not in opts
