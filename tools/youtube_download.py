@@ -1,9 +1,12 @@
 """YouTube 下载工具：输入链接，输出 MP3 文件路径。"""
 
 import importlib
+import os
 import shutil
 from pathlib import Path
 from urllib.parse import urlparse
+
+PROXY_ENV = "YOUTUBE_PROXY"
 
 
 def is_youtube_url(url: str) -> bool:
@@ -23,8 +26,12 @@ def download_youtube_mp3(
     youtube_url: str,
     output_dir: str | None = None,
     output_path: str | None = None,
+    proxy: str | None = None,
 ) -> str:
-    """Download audio from a YouTube URL and convert it to MP3."""
+    """Download audio from a YouTube URL and convert it to MP3.
+
+    The proxy applies to this download only. It defaults to YOUTUBE_PROXY.
+    """
     if not is_youtube_url(youtube_url):
         raise ValueError(f"无效的 YouTube 链接: {youtube_url}")
 
@@ -61,6 +68,9 @@ def download_youtube_mp3(
         "quiet": True,
         "no_warnings": True,
     }
+    proxy = (proxy or os.getenv(PROXY_ENV) or "").strip()
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(youtube_url, download=True)

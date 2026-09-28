@@ -6,7 +6,7 @@ audioop-lts; python_version >= "3.13"
 python-dotenv
 torch
 soundfile
-yt-dlp
+yt-dlp[default]>=2026.8.19
 pytest
 jinja2
 markdown
