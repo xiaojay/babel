@@ -8,5 +8,7 @@ clawdbot_babel
 data
 log
 checkpoints
+checkpoints_2.5
+venv-2.5
 site
 node_modules

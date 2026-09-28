@@ -8,7 +8,7 @@ from site_tools.build import build_site
 AUDIO_PATH = "audio/ep-one/zh.mp3"
 
 
-def _make_site(tmp_path, **config_overrides):
+def _make_site(tmp_path, episode_overrides=None, **config_overrides):
     site_dir = tmp_path / "site"
     (site_dir / "audio").mkdir(parents=True)
 
@@ -34,6 +34,7 @@ def _make_site(tmp_path, **config_overrides):
             "detailed_summary_md": "",
         }
     ]
+    episodes[0].update(episode_overrides or {})
 
     (site_dir / "config.json").write_text(
         json.dumps(config, ensure_ascii=False), encoding="utf-8"
@@ -78,3 +79,22 @@ class TestAudioUrls:
         assert f'src="{expected}"' in index
         assert f'src="{expected}"' in episode
         assert f'url="{expected}"' in feed
+
+
+class TestEpisodeCover:
+    """Test the optional per-episode cover image in the feed."""
+
+    COVER = "https://cdn.example.com/covers/ep-one.jpg"
+
+    def test_episode_cover_is_added_to_its_item(self, tmp_path):
+        site_dir = _make_site(tmp_path, episode_overrides={"cover_url": self.COVER})
+
+        _, _, feed = _build(site_dir)
+
+        item = feed[feed.index("<item>"):feed.index("</item>")]
+        assert f'<itunes:image href="{self.COVER}"/>' in item
+
+    def test_episode_without_cover_has_no_image(self, tmp_path):
+        _, _, feed = _build(_make_site(tmp_path))
+
+        assert "<itunes:image" not in feed
