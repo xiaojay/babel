@@ -2,7 +2,7 @@
 """Babel - 英语播客转中文播客
 
 Pipeline: WhisperX STT + Diarization → LLM Translation → Translation Summary
-→ Detailed Summary → Voice Clone (Qwen3 / IndexTTS2) → MP3
+→ Detailed Summary → Voice Clone (IndexTTS / Qwen3) → MP3
 """
 
 import argparse
@@ -159,16 +159,19 @@ def main() -> None:
         help="发布时使用的 URL slug（默认从标题生成）",
     )
     parser.add_argument(
-        "--tts-backend", default="indextts2",
-        help="语音合成后端：qwen3 或 indextts2（默认 indextts2）",
+        "--tts-backend", default="indextts2.5",
+        help="语音合成后端：indextts2.5、indextts2 或 qwen3（默认 indextts2.5）",
     )
     parser.add_argument(
-        "--index-tts-model-dir", default="checkpoints",
-        help="IndexTTS2 模型目录（默认 checkpoints）",
+        "--index-tts-model-dir", default=None,
+        help=(
+            "IndexTTS 模型目录"
+            "（默认：indextts2.5 为 checkpoints_2.5，indextts2 为 checkpoints）"
+        ),
     )
     parser.add_argument(
         "--index-tts-cfg-path", default=None,
-        help="IndexTTS2 配置文件路径（默认 <index-tts-model-dir>/config.yaml）",
+        help="IndexTTS 配置文件路径（默认 <index-tts-model-dir>/config.yaml）",
     )
     concat_group = parser.add_mutually_exclusive_group()
     concat_group.add_argument(

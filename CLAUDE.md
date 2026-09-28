@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Babel is a Python pipeline that converts English podcasts into Chinese podcasts with multi-speaker voice cloning. The pipeline: transcribe (WhisperX) → extract reference audio → translate (DeepSeek/OpenAI) → synthesize (Qwen3-TTS/IndexTTS2) → concatenate into MP3.
+Babel is a Python pipeline that converts English podcasts into Chinese podcasts with multi-speaker voice cloning. The pipeline: transcribe (WhisperX) → extract reference audio → translate (DeepSeek/OpenAI) → synthesize (IndexTTS-2.5/IndexTTS2/Qwen3-TTS) → concatenate into MP3.
 
 ## Environment Setup
 
@@ -44,7 +44,7 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 | `segmentation.py` | `resegment()` — rebuilds single-speaker, sentence-sized segments from word-level output; merges spurious speakers | pure Python |
 | `reference_audio.py` | `extract_reference_audio()` — picks best 3-10s clip per speaker using quality scoring (SNR, speech ratio, loudness, clipping) | pydub/soundfile |
 | `translate.py` | `translate_segments()` + `summarize_translated_segments()` — batch LLM translation (20 segs/call) with numbered-line parsing | DeepSeek or OpenAI API |
-| `synthesize.py` | `synthesize_segments()` — voice-cloned TTS | IndexTTS2 (default) or Qwen3-TTS |
+| `synthesize.py` | `synthesize_segments()` — voice-cloned TTS | IndexTTS-2.5 (default), IndexTTS2 or Qwen3-TTS |
 | `concatenate.py` | `concatenate_audio()` — assembles clips with gap calculation (100ms–3000ms bounds from original timing) | pydub |
 | `youtube_download.py` | `download_youtube_mp3()` — validates YouTube URLs and downloads via yt-dlp | yt-dlp |
 
@@ -68,6 +68,8 @@ Babel is a Python pipeline that converts English podcasts into Chinese podcasts 
 - Segmentation defaults: target 8s, max 15s, merge gap 1s; lengths are measured with word and pause durations capped at 1s because the aligner sometimes stretches them; speakers under 15s of speech (and under 5% of all speech) are merged into their neighbour
 - Whisper hotwords are off by default: title-derived hotwords made Whisper repeat them as content and drop real speech (measured 2026-09-27); `--hotwords` is manual only
 - Translation uses numbered-line format for batch parsing; falls back to original text on parse failure
+- TTS backends `indextts2.5` and `indextts2` share one loop in `synthesize.py`; they differ in the module (`indextts.infer_v2_5` vs `indextts.infer_v2`), half precision (`use_bf16` vs `use_fp16`), the `lang="ZH"` argument, and the default model directory (`checkpoints_2.5` vs `checkpoints`). Clips that already exist are skipped
+- IndexTTS-2.5 needs an `indextts` install that has `infer_v2_5.py`; that version uses numpy 2 and can share an environment with whisperx 3.8 once protobuf is upgraded to 6.x
 - Reference audio scoring: speech_ratio (35%), SNR (25%), loudness (15%), duration preference (15%), clipping penalty (-25%); composes multiple short clips if no 3-10s segment exists
 
 ## 静态播客网站生成器
