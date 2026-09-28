@@ -6,11 +6,13 @@
 
 import argparse
 import json
+import mimetypes
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
+
+from site_tools.episodes import slugify as slugify_title
 
 # 配置
 R2_BUCKET = "babel-podcast"
@@ -18,18 +20,12 @@ CDN_BASE = "https://cdn.jaylab.io"
 PAGES_PROJECT = "babel-podcast"
 
 
-def slugify(title: str) -> str:
+def slugify(title: str) -> str | None:
     """Generate URL-safe slug from title."""
-    # 移除非ASCII字符，转小写，替换空格和特殊字符
-    slug = title.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug)
-    slug = re.sub(r"[\s_]+", "-", slug)
-    slug = re.sub(r"-+", "-", slug)
-    slug = slug.strip("-")
-    if not slug or len(slug) < 3:
-        # 如果 slug 太短，用文件名
+    slug = slugify_title(title)[:80].strip("-")  # 限制长度
+    if len(slug) < 3:
         return None
-    return slug[:80]  # 限制长度
+    return slug
 
 
 def extract_title_from_path(zh_audio_path: Path) -> str:
@@ -60,6 +56,10 @@ def upload_to_r2(local_path: Path, r2_key: str) -> bool:
         f"--file={local_path}",
         "--remote",
     ]
+    # R2 不会自己判断类型；没有类型的音频，部分播放器无法播放
+    content_type, _ = mimetypes.guess_type(local_path.name)
+    if content_type:
+        cmd.append(f"--content-type={content_type}")
     result = run_cmd(cmd, check=False)
     if result.returncode != 0:
         print(f"  ❌ R2 上传失败: {result.stderr}")
