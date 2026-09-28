@@ -29,6 +29,9 @@
         <enclosure url="{{ audio_base_url }}/{{ ep.zh_audio }}" length="{{ ep.zh_audio_size_bytes }}" type="audio/mpeg"/>
         <itunes:duration>{{ ep.zh_audio_duration_seconds | format_duration }}</itunes:duration>
         <itunes:summary>{{ ep.summary }}</itunes:summary>
+        {% if ep.cover_url %}
+        <itunes:image href="{{ ep.cover_url }}"/>
+        {% endif %}
     </item>
     {% endfor %}
 </channel>

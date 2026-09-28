@@ -151,6 +151,7 @@ site/
 - `pub_date` — 发布日期（YYYY-MM-DD）
 - `zh_audio` / `en_audio` — 音频相对路径
 - `zh_audio_size_bytes` / `zh_audio_duration_seconds` — RSS `<enclosure>` 所需元数据
+- `cover_url` — 单集封面图 URL（可选，写入 RSS 该集的 `<itunes:image>`）
 - `summary` — 简短摘要（内联文本）
 - `detailed_summary_md` — 详细摘要（内联 Markdown，构建时渲染为 HTML）
 
