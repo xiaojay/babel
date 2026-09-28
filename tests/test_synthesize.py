@@ -40,6 +40,15 @@ def _fake_indextts(monkeypatch):
     yield fake_infer_v2
 
 
+@pytest.fixture
+def _fake_indextts25(monkeypatch, _fake_indextts):
+    """Provide fake indextts.infer_v2_5 module next to infer_v2."""
+    fake_infer_v2_5 = ModuleType("indextts.infer_v2_5")
+    fake_infer_v2_5.IndexTTS2 = MagicMock()
+    monkeypatch.setitem(sys.modules, "indextts.infer_v2_5", fake_infer_v2_5)
+    yield fake_infer_v2_5
+
+
 class TestDeviceDtypeSelection:
     """Test device/dtype/attention logic."""
 
@@ -208,7 +217,7 @@ class TestSynthesizeCallFlow:
         with pytest.raises(ValueError):
             mod.synthesize_segments(segments, ref_paths, "/tmp/work", tts_backend="unknown")
 
-    def test_default_backend_indextts2_calls_infer(self, monkeypatch, _fake_indextts):
+    def test_indextts2_calls_infer(self, tmp_path, monkeypatch, _fake_indextts):
         import tools.synthesize as mod
         monkeypatch.setattr(mod, "get_device", lambda: "cpu")
 
@@ -224,7 +233,8 @@ class TestSynthesizeCallFlow:
         result = mod.synthesize_segments(
             segments,
             ref_paths,
-            "/tmp/work",
+            str(tmp_path),
+            tts_backend="indextts2",
         )
 
         assert len(result) == 2
@@ -240,8 +250,9 @@ class TestSynthesizeCallFlow:
         first_call = tts_mock.infer.call_args_list[0].kwargs
         assert first_call["spk_audio_prompt"] == "/tmp/ref_s0.wav"
         assert first_call["text"] == "你好"
+        assert "lang" not in first_call
 
-    def test_indextts2_cuda_uses_cuda0(self, monkeypatch, _fake_indextts):
+    def test_indextts2_cuda_uses_cuda0(self, tmp_path, monkeypatch, _fake_indextts):
         import tools.synthesize as mod
         monkeypatch.setattr(mod, "get_device", lambda: "cuda")
 
@@ -254,7 +265,7 @@ class TestSynthesizeCallFlow:
         mod.synthesize_segments(
             segments,
             ref_paths,
-            "/tmp/work",
+            str(tmp_path),
             tts_backend="index-tts2",
             index_tts_model_dir="/models/index-tts2",
             index_tts_cfg_path="/models/index-tts2/my-config.yaml",
@@ -268,3 +279,92 @@ class TestSynthesizeCallFlow:
             use_cuda_kernel=True,
             use_deepspeed=False,
         )
+
+
+class TestIndexTTS25:
+    """Test the default backend, IndexTTS-2.5."""
+
+    SEGMENTS = [
+        {"start": 0.0, "end": 1.0, "text_zh": "你好", "speaker": "S0"},
+        {"start": 1.0, "end": 2.0, "text_zh": "世界", "speaker": "S1"},
+    ]
+    REF_PATHS = {"S0": "/tmp/ref_s0.wav", "S1": "/tmp/ref_s1.wav"}
+
+    def test_is_the_default_backend(self, tmp_path, monkeypatch, _fake_indextts25, _fake_indextts):
+        import tools.synthesize as mod
+        monkeypatch.setattr(mod, "get_device", lambda: "cpu")
+        tts_mock = MagicMock()
+        _fake_indextts25.IndexTTS2.return_value = tts_mock
+
+        result = mod.synthesize_segments(self.SEGMENTS, self.REF_PATHS, str(tmp_path))
+
+        assert len(result) == 2
+        _fake_indextts.IndexTTS2.assert_not_called()
+        _fake_indextts25.IndexTTS2.assert_called_once_with(
+            cfg_path="checkpoints_2.5/config.yaml",
+            model_dir="checkpoints_2.5",
+            use_bf16=False,
+            device="cpu",
+            use_cuda_kernel=False,
+            use_deepspeed=False,
+        )
+        assert tts_mock.infer.call_count == 2
+        first_call = tts_mock.infer.call_args_list[0].kwargs
+        assert first_call["spk_audio_prompt"] == "/tmp/ref_s0.wav"
+        assert first_call["text"] == "你好"
+        assert first_call["lang"] == "ZH"
+        assert first_call["output_path"] == str(tmp_path / "tts_clips" / "seg_0000.wav")
+
+    def test_cuda_uses_bf16(self, tmp_path, monkeypatch, _fake_indextts25):
+        import tools.synthesize as mod
+        monkeypatch.setattr(mod, "get_device", lambda: "cuda")
+        _fake_indextts25.IndexTTS2.return_value = MagicMock()
+
+        mod.synthesize_segments(
+            self.SEGMENTS,
+            self.REF_PATHS,
+            str(tmp_path),
+            tts_backend="indextts2.5",
+            index_tts_model_dir="/models/index-tts-2.5",
+        )
+
+        _fake_indextts25.IndexTTS2.assert_called_once_with(
+            cfg_path="/models/index-tts-2.5/config.yaml",
+            model_dir="/models/index-tts-2.5",
+            use_bf16=True,
+            device="cuda:0",
+            use_cuda_kernel=True,
+            use_deepspeed=False,
+        )
+
+    def test_old_indextts_install_gives_clear_error(self, tmp_path, monkeypatch, _fake_indextts):
+        import tools.synthesize as mod
+        monkeypatch.setattr(mod, "get_device", lambda: "cpu")
+        # Only infer_v2 exists, as in an index-tts checkout from before 2.5.
+        monkeypatch.setitem(sys.modules, "indextts.infer_v2_5", None)
+
+        with pytest.raises(RuntimeError, match="indextts2"):
+            mod.synthesize_segments(self.SEGMENTS, self.REF_PATHS, str(tmp_path))
+
+    def test_skips_clips_that_already_exist(self, tmp_path, monkeypatch, _fake_indextts25):
+        import tools.synthesize as mod
+        monkeypatch.setattr(mod, "get_device", lambda: "cpu")
+        tts_mock = MagicMock()
+        _fake_indextts25.IndexTTS2.return_value = tts_mock
+        clips = tmp_path / "tts_clips"
+        clips.mkdir()
+        (clips / "seg_0000.wav").write_bytes(b"x" * 2000)
+
+        result = mod.synthesize_segments(self.SEGMENTS, self.REF_PATHS, str(tmp_path))
+
+        assert result == [str(clips / "seg_0000.wav"), str(clips / "seg_0001.wav")]
+        assert tts_mock.infer.call_count == 1
+        assert tts_mock.infer.call_args.kwargs["text"] == "世界"
+
+    def test_requires_reference_audio(self, tmp_path, monkeypatch, _fake_indextts25):
+        import tools.synthesize as mod
+        monkeypatch.setattr(mod, "get_device", lambda: "cpu")
+        _fake_indextts25.IndexTTS2.return_value = MagicMock()
+
+        with pytest.raises(ValueError):
+            mod.synthesize_segments(self.SEGMENTS, {}, str(tmp_path))

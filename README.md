@@ -5,7 +5,7 @@
 1. WhisperX 转录 + 说话人分离
 2. LLM 翻译（DeepSeek / OpenAI GPT-5 mini）
 3. 翻译稿总结（简短 + 详细）
-4. 声音克隆合成（Qwen3-TTS / IndexTTS2）
+4. 声音克隆合成（IndexTTS-2.5 / IndexTTS2 / Qwen3-TTS）
 5. 拼接为单一 MP3
 
 本仓库包含完整 CLI、分步工具模块以及单元测试，用于将英文播客音频翻译成中文并保留多说话人声线。
@@ -24,13 +24,13 @@
 Python 版本建议 3.10+，并需要以下系统能力：
 
 - `ffmpeg`：`pydub` 处理 MP3/WAV 需要，未安装会导致音频读写失败
-- GPU 可选：CUDA 可显著加速 WhisperX、Qwen3-TTS、IndexTTS2
+- GPU 可选：CUDA 可显著加速 WhisperX、IndexTTS、Qwen3-TTS
 
 Python 依赖（见 `requirements.txt`）：
 
 - `whisperx`
 - `qwen-tts`（来自 `https://github.com/QwenLM/Qwen3-TTS`）
-- `indextts`（默认后端 `indextts2` 需要，来自 `https://github.com/index-tts/index-tts`）
+- `indextts`（默认后端 `indextts2.5` 和 `indextts2` 需要，来自 `https://github.com/index-tts/index-tts`）
 - `openai`
 - `pydub`
 - `python-dotenv`
@@ -58,15 +58,21 @@ source .venv/bin/activate
 pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple -r requirements.txt || pip install -r requirements.txt
 ```
 
-默认后端是 `IndexTTS2`（`--tts-backend indextts2`），需按官方仓库安装 `indextts` 并下载模型到 `checkpoints/`（或自定义目录）：
+默认后端是 `IndexTTS-2.5`（`--tts-backend indextts2.5`），需安装新版 `indextts` 并下载模型到 `checkpoints_2.5/`（或自定义目录）：
 
 ```bash
-pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple -U uv
 git clone https://github.com/index-tts/index-tts.git
-cd index-tts
-uv sync --all-extras --default-index "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
-uv tool install "huggingface-hub[cli,hf_xet]"
-hf download IndexTeam/IndexTTS-2 --local-dir=checkpoints
+pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple ./index-tts
+# index-tts 会把 protobuf 降到 3.19，WhisperX 3.8 依赖的 pyannote 4 需要新版
+pip install "protobuf>=6.33.5,<7"
+pip install modelscope
+modelscope download --model IndexTeam/IndexTTS-2.5 --local_dir checkpoints_2.5
+```
+
+`IndexTTS-2.5` 需要包含 `indextts/infer_v2_5.py` 的 `indextts`（2026-08 之后的版本）。旧版本只能用 `--tts-backend indextts2`，模型目录默认是 `checkpoints/`：
+
+```bash
+modelscope download --model IndexTeam/IndexTTS-2 --local_dir checkpoints
 ```
 
 若暂时不安装 `indextts`，运行时请显式指定 `--tts-backend qwen3`。
@@ -108,9 +114,10 @@ python babel.py "https://www.youtube.com/watch?v=VIDEO_ID" --download-only -o po
 - 简短总结：`*.summary.txt`
 - 详细总结（目录+主题标题）：`*.summary.detailed.md`
 
-已验证示例（`IndexTTS2`，默认保留中间文件）：
+已验证示例（默认保留中间文件）：
 
 ```bash
+python babel.py clawdbot_5min.mp3 -o clawdbot_5min_zh.mp3
 python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp3
 ```
 
@@ -121,12 +128,20 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 - `input`（必填）：输入英文播客 MP3，或 YouTube 链接
 - `-o, --output`：输出文件路径（默认在 `data/` 下生成 `input_zh.mp3`；`--download-only` 时为下载的 MP3）
 - `--whisper-model`：Whisper 模型大小（默认 `large-v3`）
-- `--translation-provider`：翻译提供方（`deepseek` 或 `openai`，默认 `deepseek`）
-- `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-chat` 或 `gpt-5-mini`）
+- `--language`：源音频语言代码（默认 `en`；`auto` 为自动检测）
+- `--hotwords`：转录热词，逗号分隔（人名、公司名等）。默认不使用，见下方说明
+- `--num-speakers N`：说话人数量（已知时指定）
+- `--min-speakers N` / `--max-speakers N`：说话人数量的下限和上限
+- `--diarization-model NAME_OR_PATH`：说话人分离模型，可以是 Hugging Face 模型名或本地目录（默认由 WhisperX 版本决定：3.7 为 `speaker-diarization-3.1`，3.8 为 `speaker-diarization-community-1`）
+- `--min-speaker-seconds SEC`：总时长低于该值的说话人会并入相邻的说话人（默认 `15`；`0` 为不合并）
+- `--no-resegment`：保留 WhisperX 的原始分段
+- `--transcribe-only`：只执行第 1 步并保存转录结果后退出
+- `--translation-provider`：翻译提供方（`deepseek`、`openai` 或 `openrouter`，默认 `deepseek`）
+- `--translation-model`：翻译模型名（默认随提供方自动选择：`deepseek-flash` 或 `gpt-5-mini`）
 - `--summary-mode`：总结模式（`short` / `detailed` / `both`，默认 `both`）
-- `--tts-backend`：语音合成后端（`qwen3` 或 `indextts2`，默认 `indextts2`）
-- `--index-tts-model-dir`：IndexTTS2 模型目录（默认 `checkpoints`）
-- `--index-tts-cfg-path`：IndexTTS2 配置路径（默认 `<index-tts-model-dir>/config.yaml`）
+- `--tts-backend`：语音合成后端（`indextts2.5`、`indextts2` 或 `qwen3`，默认 `indextts2.5`）
+- `--index-tts-model-dir`：IndexTTS 模型目录（默认：`indextts2.5` 为 `checkpoints_2.5`，`indextts2` 为 `checkpoints`）
+- `--index-tts-cfg-path`：IndexTTS 配置路径（默认 `<index-tts-model-dir>/config.yaml`）
 - `--concatenate-without-timestamps`：第 5 步拼接时忽略时间戳，不额外插入停顿
 - `--concatenate-fixed-gap-ms MS`：第 5 步拼接时忽略时间戳，并在片段间插入固定停顿（毫秒）
 - `--keep-intermediate`：保留中间文件（默认）
@@ -139,6 +154,7 @@ python babel.py clawdbot_5min.mp3 --tts-backend indextts2 -o clawdbot_5min_zh.mp
 python babel.py input.mp3 --whisper-model medium -o output_zh.mp3
 python babel.py input.mp3 --translation-provider openai --translation-model gpt-5-mini -o output_zh.mp3
 python babel.py input.mp3 --summary-mode detailed -o output_zh.mp3
+python babel.py input.mp3 --tts-backend indextts2.5 --index-tts-model-dir /path/to/checkpoints_2.5
 python babel.py input.mp3 --tts-backend indextts2 --index-tts-model-dir /path/to/checkpoints
 python babel.py input.mp3 --concatenate-without-timestamps -o output_zh.mp3
 python babel.py input.mp3 --concatenate-fixed-gap-ms 180 -o output_zh.mp3
@@ -150,8 +166,28 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 
 ### 1. 转录与说话人分离（`tools/transcribe.py`）
 
-- 使用 WhisperX 转录，并进行字级时间对齐。
+- 使用 WhisperX 转录，并进行字级时间对齐。默认按英文识别，不做语言检测。
 - 如果设置了 `HF_TOKEN`，启用说话人分离并为片段标注 `speaker`。
+- 热词默认关闭。实测中把节目标题里的词作为热词时，Whisper 会把它们当作内容反复输出，并挤掉真实内容。需要时用 `--hotwords` 手动指定，并检查转录结果。
+- 转录后按词级时间戳和说话人重新分段（`tools/segmentation.py`）：
+  - 每个片段只属于一个说话人，说话人在片段中途切换时会切开。
+  - 同一说话人的碎片合并成句，目标长度约 8 秒，上限 15 秒。
+  - 句子保持完整，整句归属于说了其中大部分词的说话人；超过 1 秒的句间停顿不合并。
+  - 总时长过短的说话人（默认低于 15 秒）并入相邻的说话人，避免用极短的音频克隆声音。
+- 保留中间文件时，词级原始结果写入 `transcription_raw.json`。
+- 指定本地模型目录（`--diarization-model /path/to/model`）时不需要 `HF_TOKEN`，也不需要联网。
+
+WhisperX 3.8 需要 numpy 2。新版 `indextts` 也使用 numpy 2，可以和它装在同一个环境里。2026-08 之前的 `indextts` 要求 numpy 1.26，这种情况下可以分两步运行，第二步会发现已有的转录结果并跳过第 1 步：
+
+```bash
+# 第 1 步：在装有 WhisperX 3.8 的环境里
+/path/to/asr-venv/bin/python babel.py input.mp3 --transcribe-only \
+  --diarization-model /path/to/speaker-diarization-community-1
+
+# 其余步骤：在装有旧版 indextts 的环境里
+/path/to/tts-venv/bin/python babel.py input.mp3
+```
+- 每个模型用完即释放显存，再进入下一步。
 - 设备选择逻辑：CUDA 优先，其次 MPS，最后 CPU。
 - 在 `babel.py` 中对 `torch.load` 做兼容性补丁，以适配 pyannote 检查点。
 
@@ -172,7 +208,7 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 ### 3. 翻译（`tools/translate.py`）
 
 - 支持两种翻译提供方：
-  - `deepseek`（默认）：`openai` SDK + `base_url=https://api.deepseek.com`，默认模型 `deepseek-chat`
+  - `deepseek`（默认）：`openai` SDK + `base_url=https://api.deepseek.com`，默认模型 `deepseek-flash`（关闭思考模式）
   - `openai`：默认模型 `gpt-5-mini`
 - 分批翻译，每批默认 20 段。
 - 解析返回文本中的编号，写入 `text_zh` 字段。
@@ -192,13 +228,17 @@ python babel.py "https://youtu.be/VIDEO_ID" --download-only -o source.mp3
 
 ### 4. 声音克隆合成（`tools/synthesize.py`）
 
-- 后端一：`indextts2`（默认）
-  - 使用 `indextts.infer_v2.IndexTTS2` 逐段推理。
+- 后端一：`indextts2.5`（默认）
+  - 使用 `indextts.infer_v2_5.IndexTTS2` 逐段推理，语言固定为中文。
   - 每个片段按 `speaker` 选择对应参考音频（缺失时回退到首个参考音频）。
   - 默认读取 `<index-tts-model-dir>/config.yaml`，可用 `--index-tts-cfg-path` 覆盖。
-  - 首次运行会自动下载额外模型到 `<index-tts-model-dir>/hf_cache`（例如 `facebook/w2v-bert-2.0`、`amphion/MaskGCT`、`funasr/campplus`、`nvidia/bigvgan_v2_22khz_80band_256x`）。
+  - 首次运行会把辅助模型放到 `<index-tts-model-dir>/hf_cache`（`facebook/w2v-bert-2.0`、`amphion/MaskGCT`、`funasr/campplus`、`nvidia/bigvgan_v2_22khz_80band_256x`）。本机 HuggingFace 缓存里已有的会直接复制，否则自动下载。
+  - 已存在的片段会跳过，中断后重新运行可以接着合成。
+  - 与 `indextts2` 的实测对比（RTX 4090，同样的文本和参考音频）：合成快 26–36%，显存峰值 5.5–5.7 GB（`indextts2` 为 7.1–7.2 GB），音色相似度持平。清晰度因说话人而异：一组访谈略好，一组说话含糊的单人演讲明显变差。效果不理想时改用 `--tts-backend indextts2`。
+- 后端二：`indextts2`
+  - 使用 `indextts.infer_v2.IndexTTS2` 逐段推理，其余行为与 `indextts2.5` 相同。
   - 若访问 HuggingFace 较慢，可先设置：`export HF_ENDPOINT=https://hf-mirror.com`。
-- 后端二：`qwen3`
+- 后端三：`qwen3`
   - 使用 `Qwen/Qwen3-TTS-12Hz-1.7B-Base` 进行中文语音合成。
   - 每个说话人提取一次 voice clone prompt，复用到所有同说话人片段。
   - 设备逻辑：
@@ -254,6 +294,8 @@ pytest -q
 - `pydub` 报错：确认 `ffmpeg` 已安装并可在 PATH 中找到。
 - CUDA/MPS 性能不佳：可切换 `--whisper-model` 为更小模型以减少显存占用。
 - 使用 `indextts2` 报 `ModuleNotFoundError`：先按上文安装 `indextts`，并确认模型目录存在 `config.yaml` 与权重文件。
+- 使用 `indextts2.5` 提示“已安装的 indextts 不包含 IndexTTS-2.5”：安装的是旧版 `indextts`，按上文升级，或改用 `--tts-backend indextts2`。
+- `indextts2` 找不到 `facebook/w2v-bert-2.0` 等辅助模型：旧版 `indextts` 把缓存目录写成相对路径 `./checkpoints/hf_cache`，需要在包含 `checkpoints/` 的目录下运行。
 - `indextts2` 报 `PytorchStreamReader ... archive is corrupted`：通常是模型缓存下载中断，删除损坏缓存后重下：
 
 ```bash
@@ -267,7 +309,7 @@ HF_ENDPOINT=https://hf-mirror.com hf download nvidia/bigvgan_v2_22khz_80band_256
 - `torch.load` 被强制 `weights_only=False`，避免 pyannote checkpoint 反序列化失败。
 - WhisperX 在 MPS 上不支持，需要自动回退到 CPU。
 - 翻译结果按行解析，建议模型输出严格对应编号。
-- `qwen3` 后端使用每个说话人首个片段文本作为 reference text；`indextts2` 后端直接使用参考音频进行零样本克隆。
+- `qwen3` 后端使用每个说话人首个片段文本作为 reference text；`indextts2.5` 和 `indextts2` 后端直接使用参考音频进行零样本克隆。
 
 ## 许可
 

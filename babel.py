@@ -2,7 +2,7 @@
 """Babel - 英语播客转中文播客
 
 Pipeline: WhisperX STT + Diarization → LLM Translation → Translation Summary
-→ Detailed Summary → Voice Clone (Qwen3 / IndexTTS2) → MP3
+→ Detailed Summary → Voice Clone (IndexTTS / Qwen3) → MP3
 """
 
 import argparse
@@ -71,17 +71,56 @@ def main() -> None:
         help="Whisper 模型大小（默认 large-v3）",
     )
     parser.add_argument(
+        "--language", default="en",
+        help="源音频语言代码（默认 en；auto 为自动检测）",
+    )
+    parser.add_argument(
+        "--hotwords", default=None,
+        help=(
+            "转录热词，逗号分隔（人名、公司名等）。"
+            "Whisper 可能把热词当作内容重复输出，使用后请检查转录结果"
+        ),
+    )
+    parser.add_argument(
+        "--num-speakers", type=int, default=None, metavar="N",
+        help="说话人数量（已知时指定，可提高说话人分离的准确度）",
+    )
+    parser.add_argument(
+        "--min-speakers", type=int, default=None, metavar="N",
+        help="说话人数量下限",
+    )
+    parser.add_argument(
+        "--max-speakers", type=int, default=None, metavar="N",
+        help="说话人数量上限",
+    )
+    parser.add_argument(
+        "--diarization-model", default=None, metavar="NAME_OR_PATH",
+        help="说话人分离模型：Hugging Face 模型名或本地目录（默认由 WhisperX 版本决定）",
+    )
+    parser.add_argument(
+        "--min-speaker-seconds", type=float, default=15.0, metavar="SEC",
+        help="总时长低于该值的说话人会并入相邻的说话人（默认 15；0 为不合并）",
+    )
+    parser.add_argument(
+        "--transcribe-only", action="store_true",
+        help="只执行第 1 步并保存转录结果后退出；之后不带此参数再运行，会从第 2 步继续",
+    )
+    parser.add_argument(
+        "--no-resegment", action="store_true",
+        help="保留 WhisperX 的原始分段，不按词级时间戳重新分段",
+    )
+    parser.add_argument(
         "--translation-provider",
-        default="openai",
-        choices=["deepseek", "openai"],
-        help="翻译提供方：deepseek 或 openai（默认 openai）",
+        default="deepseek",
+        choices=["deepseek", "openai", "openrouter"],
+        help="翻译提供方：deepseek、openai 或 openrouter（默认 deepseek）",
     )
     parser.add_argument(
         "--translation-model",
         default=None,
         help=(
             "翻译模型名（默认随 --translation-provider 自动选择："
-            "openai 为 gpt-5-mini，deepseek 为 deepseek-chat）"
+            "openai 为 gpt-5-mini，deepseek 为 deepseek-flash）"
         ),
     )
     parser.add_argument(
@@ -120,16 +159,19 @@ def main() -> None:
         help="发布时使用的 URL slug（默认从标题生成）",
     )
     parser.add_argument(
-        "--tts-backend", default="indextts2",
-        help="语音合成后端：qwen3 或 indextts2（默认 indextts2）",
+        "--tts-backend", default="indextts2.5",
+        help="语音合成后端：indextts2.5、indextts2 或 qwen3（默认 indextts2.5）",
     )
     parser.add_argument(
-        "--index-tts-model-dir", default="checkpoints",
-        help="IndexTTS2 模型目录（默认 checkpoints）",
+        "--index-tts-model-dir", default=None,
+        help=(
+            "IndexTTS 模型目录"
+            "（默认：indextts2.5 为 checkpoints_2.5，indextts2 为 checkpoints）"
+        ),
     )
     parser.add_argument(
         "--index-tts-cfg-path", default=None,
-        help="IndexTTS2 配置文件路径（默认 <index-tts-model-dir>/config.yaml）",
+        help="IndexTTS 配置文件路径（默认 <index-tts-model-dir>/config.yaml）",
     )
     concat_group = parser.add_mutually_exclusive_group()
     concat_group.add_argument(
@@ -158,6 +200,17 @@ def main() -> None:
         sys.exit(1)
     if args.concatenate_fixed_gap_ms is not None and args.concatenate_fixed_gap_ms < 0:
         print("错误: --concatenate-fixed-gap-ms 必须 >= 0", file=sys.stderr)
+        sys.exit(1)
+    if args.transcribe_only and not args.keep_intermediate:
+        print("错误: --transcribe-only 需要保留中间文件", file=sys.stderr)
+        sys.exit(1)
+    if args.num_speakers is not None and (
+        args.min_speakers is not None or args.max_speakers is not None
+    ):
+        print(
+            "错误: --num-speakers 不能与 --min-speakers / --max-speakers 同时使用",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     try:
@@ -210,59 +263,109 @@ def main() -> None:
         print()
 
         # Step 1: Transcribe + diarize
-        segments = transcribe(input_path, model_size=args.whisper_model)
-        if args.keep_intermediate:
-            save_intermediate(
-                {"segments": segments},
-                os.path.join(work_dir, "transcription.json"),
+        transcription_cache = os.path.join(work_dir, "transcription.json")
+        if os.path.isfile(transcription_cache):
+            print("[Step 1] 发现已有转录缓存，跳过转录...")
+            with open(transcription_cache, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            segments = cached["segments"] if "segments" in cached else cached
+        else:
+            segments = transcribe(
+                input_path,
+                model_size=args.whisper_model,
+                language=None if args.language == "auto" else args.language,
+                hotwords=args.hotwords,
+                num_speakers=args.num_speakers,
+                min_speakers=args.min_speakers,
+                max_speakers=args.max_speakers,
+                diarization_model=args.diarization_model,
+                resegment_words=not args.no_resegment,
+                min_speaker_seconds=args.min_speaker_seconds,
+                raw_output_path=(
+                    os.path.join(work_dir, "transcription_raw.json")
+                    if args.keep_intermediate
+                    else None
+                ),
             )
+            if args.keep_intermediate:
+                save_intermediate(
+                    {"segments": segments},
+                    transcription_cache,
+                )
         print()
 
+        if args.transcribe_only:
+            print(f"转录结果: {transcription_cache}")
+            print("完成！")
+            return
+
         # Step 2: Extract reference audio per speaker
-        ref_paths = extract_reference_audio(input_path, segments, work_dir)
+        ref_dir = os.path.join(work_dir, "ref_audio")
+        if os.path.isdir(ref_dir) and any(f.endswith(".wav") for f in os.listdir(ref_dir)):
+            print("[Step 2] 发现已有参考音频，跳过提取...")
+            ref_paths = {}
+            for fname in os.listdir(ref_dir):
+                if fname.endswith(".wav") and not fname.startswith("."):
+                    speaker = fname.replace(".wav", "")
+                    ref_paths[speaker] = os.path.join(ref_dir, fname)
+        else:
+            ref_paths = extract_reference_audio(input_path, segments, work_dir)
         print()
 
         # Step 3: Translate
-        segments = translate_segments(
-            segments,
-            provider=args.translation_provider,
-            model=args.translation_model,
-        )
-        if args.keep_intermediate:
-            save_intermediate(
-                {"segments": segments},
-                os.path.join(work_dir, "translation.json"),
+        translation_cache = os.path.join(work_dir, "translation.json")
+        if os.path.isfile(translation_cache):
+            print("[Step 3] 发现已有翻译缓存，跳过翻译...")
+            with open(translation_cache, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            segments = cached["segments"] if "segments" in cached else cached
+        else:
+            segments = translate_segments(
+                segments,
+                provider=args.translation_provider,
+                model=args.translation_model,
             )
+            if args.keep_intermediate:
+                save_intermediate(
+                    {"segments": segments},
+                    translation_cache,
+                )
 
         if args.summary_mode in {"short", "both"}:
-            try:
-                summary_text = summarize_translated_segments(
-                    segments,
-                    provider=args.translation_provider,
-                    model=args.translation_model,
-                )
-                save_text(summary_text, summary_output_path)
-                print(f"[Step 3.5] 简短总结已写入: {summary_output_path}")
-            except Exception as exc:
-                print(
-                    f"[Step 3.5] 警告: 简短总结生成失败，将继续后续流程: {exc}",
-                    file=sys.stderr,
-                )
+            if os.path.isfile(summary_output_path):
+                print(f"[Step 3.5] 发现已有简短总结，跳过: {summary_output_path}")
+            else:
+                try:
+                    summary_text = summarize_translated_segments(
+                        segments,
+                        provider=args.translation_provider,
+                        model=args.translation_model,
+                    )
+                    save_text(summary_text, summary_output_path)
+                    print(f"[Step 3.5] 简短总结已写入: {summary_output_path}")
+                except Exception as exc:
+                    print(
+                        f"[Step 3.5] 警告: 简短总结生成失败，将继续后续流程: {exc}",
+                        file=sys.stderr,
+                    )
 
         if args.summary_mode in {"detailed", "both"}:
-            try:
-                detailed_summary_text = summarize_translated_segments_detailed(
-                    segments,
-                    provider=args.translation_provider,
-                    model=args.translation_model,
-                )
-                save_text(detailed_summary_text, detailed_summary_output_path)
-                print(f"[Step 3.6] 详细总结已写入: {detailed_summary_output_path}")
-            except Exception as exc:
-                print(
-                    f"[Step 3.6] 警告: 详细总结生成失败，将继续后续流程: {exc}",
-                    file=sys.stderr,
-                )
+            if os.path.isfile(detailed_summary_output_path):
+                print(f"[Step 3.6] 发现已有详细总结，跳过: {detailed_summary_output_path}")
+            else:
+                try:
+                    detailed_summary_text = summarize_translated_segments_detailed(
+                        segments,
+                        provider=args.translation_provider,
+                        model=args.translation_model,
+                    )
+                    save_text(detailed_summary_text, detailed_summary_output_path)
+                    print(f"[Step 3.6] 详细总结已写入: {detailed_summary_output_path}")
+                except Exception as exc:
+                    print(
+                        f"[Step 3.6] 警告: 详细总结生成失败，将继续后续流程: {exc}",
+                        file=sys.stderr,
+                    )
         print()
 
         # Step 4: Synthesize with voice cloning
