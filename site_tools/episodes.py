@@ -25,12 +25,13 @@ def _get_duration_seconds(audio_path: Path) -> int:
     return round(float(info["format"]["duration"]))
 
 
-def _slugify(title: str) -> str:
+def slugify(title: str) -> str:
     """Generate a URL-safe slug from a title."""
     slug = title.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug)
-    slug = re.sub(r"[\s_]+", "-", slug)
-    slug = re.sub(r"-+", "-", slug)
+    # Apostrophes join a word ("altman's"); any other punctuation separates two.
+    slug = re.sub(r"['’‘`]", "", slug)
+    slug = re.sub(r"[^\w]+", "-", slug)
+    slug = re.sub(r"[-_]+", "-", slug)
     return slug.strip("-")
 
 
@@ -39,7 +40,7 @@ def add_episode(args):
     site_dir = Path(args.site_dir)
     episodes = load_episodes(site_dir)
 
-    slug = args.slug if args.slug else _slugify(args.title)
+    slug = args.slug if args.slug else slugify(args.title)
     if not slug:
         raise ValueError("无法从标题生成 slug，请用 --slug 指定")
 
